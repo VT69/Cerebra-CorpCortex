@@ -1,0 +1,40 @@
+WORK ORDER
+==========
+WO Number: WO-2024-0312
+Date: 15-March-2024
+Priority: High
+Status: Completed
+
+Equipment Tag: P-101
+Equipment Name: Feed Pump - Primary
+Location: Process Area - Unit 3
+Equipment Type: Centrifugal Pump
+Manufacturer: KSB Pumps
+Model: Etanorm 65-200
+
+Failure Description:
+Pump P-101 reported excessive vibration (vibration level: 12.5 mm/s, alarm setpoint: 7.0 mm/s)
+and high bearing temperature (bearing temperature: 89°C, normal operating: 45-55°C).
+Pump tripped on high-temperature protection at 14:32 hrs.
+
+Root Cause (preliminary):
+Mechanical seal failure leading to process fluid ingress into bearing housing.
+Suspected root cause: dry running during low-level condition on suction vessel V-101
+on 12-March-2024 (refer incident report IR-2024-031).
+
+Work Performed:
+1. Isolation and lockout/tagout completed as per SOP-MAINT-004
+2. Impeller inspection: pitting corrosion noted on impeller eye (20% material loss)
+3. Mechanical seal replaced (Part No: KSB-SEAL-65-V2)
+4. Bearings replaced: Drive-end bearing 6313-C3, Non-drive-end bearing 6311-C3
+5. Shaft alignment checked and corrected: offset 0.03mm (within tolerance 0.05mm)
+6. Seal flush system flushed and refilled with fresh demineralized water
+7. Post-maintenance vibration test: 3.2 mm/s (within normal range)
+
+Regulatory Reference: OISD-RP-167 Section 4.3 - Centrifugal Pump Maintenance
+
+Performed By: Rajesh Kumar (Maintenance Technician, Employee ID: MT-0234)
+Supervised By: Anand Singh (Senior Mechanical Engineer, Employee ID: ME-0089)
+Duration: 14 hours
+
+Next Maintenance Due: September 2024 (6-month interval per OEM recommendation)

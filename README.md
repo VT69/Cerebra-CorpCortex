@@ -2,9 +2,8 @@
 
 The custom AI brain for your enterprise that seamlessly connects siloed documents into an interactive knowledge base. 
 
-Cerebra-CorpCortex transforms static enterprise data (compliance manuals, operational logs, technical diagrams, and reports) into an interactive, multi-modal knowledge graph. It enables employees, auditors, and operations teams to instantly retrieve insights, perform root cause analysis, and verify compliance through natural language.
-
----
+Cerebra-CorpCortex transforms static enterprise data (compliance manuals, operational logs, technical diagrams, and reports) into an interactive, multi-modal knowledge graph[cite: 5, 6]. It enables employees, auditors, and operations teams to instantly retrieve insights, perform root cause analysis, and verify compliance through natu0ral language.
+////---
 
 ## 🚀 The Problem & Solution
 

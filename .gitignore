@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+
+# Environment
+.env
+
+# Data (we are committing sample data for judges)
+# data/chroma/
+# data/uploads/
+# data/fingerprints.json
+data/eval/
+
+# Junk
+frontend/AGENTS.md
+frontend/CLAUDE.md
+frontend/tsconfig.tsbuildinfo
+# Neo4j local
+neo4j_data/
+neo4j_logs/
+
+# Node / Frontend
+frontend/node_modules/
+frontend/.next/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Temp files from P&ID preprocessing
+*_preprocessed.png
+
+.vercel

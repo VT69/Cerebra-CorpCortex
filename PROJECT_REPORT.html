@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>IndustrialIQ — Project Report</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #ffffff;
+      color: #1a1a2e;
+      line-height: 1.7;
+      font-size: 14px;
+    }
+
+    /* ── Cover Page ── */
+    .cover {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 40%, #16213e 70%, #0f3460 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 40px;
+      page-break-after: always;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cover::before {
+      content: '';
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%);
+      top: 10%;
+      right: -10%;
+      border-radius: 50%;
+    }
+
+    .cover::after {
+      content: '';
+      position: absolute;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(16,185,129,0.1) 0%, transparent 70%);
+      bottom: 10%;
+      left: -5%;
+      border-radius: 50%;
+    }
+
+    .cover-badge {
+      background: rgba(99,102,241,0.2);
+      border: 1px solid rgba(99,102,241,0.4);
+      color: #a5b4fc;
+      padding: 6px 20px;
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 32px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .cover-logo {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, #6366f1, #10b981);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      margin-bottom: 28px;
+      box-shadow: 0 20px 60px rgba(99,102,241,0.4);
+      position: relative;
+      z-index: 1;
+    }
+
+    .cover h1 {
+      font-size: 52px;
+      font-weight: 800;
+      color: white;
+      text-align: center;
+      letter-spacing: -1px;
+      line-height: 1.1;
+      margin-bottom: 12px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .cover h1 span {
+      background: linear-gradient(90deg, #6366f1, #10b981);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .cover-subtitle {
+      font-size: 18px;
+      color: #94a3b8;
+      text-align: center;
+      max-width: 600px;
+      margin-bottom: 48px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .cover-divider {
+      width: 60px;
+      height: 3px;
+      background: linear-gradient(90deg, #6366f1, #10b981);
+      border-radius: 4px;
+      margin: 24px auto;
+    }
+
+    .cover-meta {
+      display: flex;
+      gap: 40px;
+      margin-top: 8px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .cover-meta-item {
+      text-align: center;
+    }
+
+    .cover-meta-item .label {
+      font-size: 11px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 4px;
+    }
+
+    .cover-meta-item .value {
+      font-size: 15px;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    .cover-team {
+      margin-top: 48px;
+      display: flex;
+      gap: 16px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .team-chip {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      padding: 12px 20px;
+      text-align: center;
+    }
+
+    .team-chip .name {
+      color: white;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .team-chip .role {
+      color: #64748b;
+      font-size: 11px;
+      margin-top: 2px;
+    }
+
+    /* ── Content ── */
+    .content {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 60px 40px;
+    }
+
+    /* ── Section ── */
+    .section {
+      margin-bottom: 52px;
+      page-break-inside: avoid;
+    }
+
+    .section-number {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #6366f1;
+      margin-bottom: 8px;
+    }
+
+    h2 {
+      font-size: 26px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid #f1f5f9;
+      position: relative;
+    }
+
+    h2::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      width: 40px;
+      height: 2px;
+      background: linear-gradient(90deg, #6366f1, #10b981);
+    }
+
+    h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1e293b;
+      margin: 24px 0 10px 0;
+    }
+
+    p { color: #374151; margin-bottom: 12px; }
+
+    /* ── Highlight Box ── */
+    .highlight-box {
+      background: linear-gradient(135deg, #f8faff 0%, #f0f4ff 100%);
+      border: 1px solid #e0e7ff;
+      border-left: 4px solid #6366f1;
+      border-radius: 8px;
+      padding: 20px 24px;
+      margin: 20px 0;
+    }
+
+    .highlight-box p { color: #374151; margin: 0; }
+
+    /* ── Problem Cards ── */
+    .problem-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin: 20px 0;
+    }
+
+    .problem-card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+
+    .problem-card .icon { font-size: 24px; margin-bottom: 10px; }
+    .problem-card .title { font-weight: 600; color: #111827; margin-bottom: 6px; font-size: 14px; }
+    .problem-card p { font-size: 13px; color: #6b7280; margin: 0; }
+
+    /* ── Feature Cards ── */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 14px;
+      margin: 20px 0;
+    }
+
+    .feature-card {
+      background: linear-gradient(135deg, #f8faff, #fff);
+      border: 1px solid #e0e7ff;
+      border-radius: 12px;
+      padding: 18px;
+    }
+
+    .feature-card .icon { font-size: 22px; margin-bottom: 10px; }
+    .feature-card .title { font-weight: 600; color: #4f46e5; margin-bottom: 6px; font-size: 13px; }
+    .feature-card p { font-size: 12px; color: #6b7280; margin: 0; line-height: 1.5; }
+
+    /* ── Architecture Flow ── */
+    .arch-flow {
+      background: #0f172a;
+      border-radius: 16px;
+      padding: 32px;
+      margin: 20px 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12.5px;
+      line-height: 1.9;
+      color: #94a3b8;
+    }
+
+    .arch-flow .highlight { color: #a5b4fc; font-weight: 500; }
+    .arch-flow .accent { color: #34d399; }
+    .arch-flow .arrow { color: #6366f1; }
+
+    /* ── Tech Stack Table ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+
+    th {
+      background: #f8faff;
+      color: #374151;
+      font-weight: 600;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid #f3f4f6;
+      color: #374151;
+      font-size: 13px;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    td:first-child { font-weight: 500; color: #1e293b; }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 100px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge-purple { background: #ede9fe; color: #7c3aed; }
+    .badge-green { background: #d1fae5; color: #065f46; }
+    .badge-blue { background: #dbeafe; color: #1d4ed8; }
+    .badge-orange { background: #fed7aa; color: #92400e; }
+
+    /* ── Team Section ── */
+    .team-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      margin: 20px 0;
+    }
+
+    .team-card {
+      background: linear-gradient(135deg, #f8faff, #fff);
+      border: 1px solid #e0e7ff;
+      border-radius: 12px;
+      padding: 22px;
+      text-align: center;
+    }
+
+    .team-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      margin: 0 auto 12px;
+    }
+
+    .avatar-v { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
+    .avatar-m { background: linear-gradient(135deg, #10b981, #3b82f6); }
+    .avatar-k { background: linear-gradient(135deg, #f59e0b, #ef4444); }
+
+    .team-card .name { font-weight: 700; color: #111827; margin-bottom: 4px; }
+    .team-card .role { font-size: 12px; color: #6366f1; font-weight: 600; margin-bottom: 10px; }
+    .team-card ul { list-style: none; text-align: left; }
+    .team-card ul li { font-size: 12px; color: #6b7280; padding: 3px 0; }
+    .team-card ul li::before { content: '→ '; color: #10b981; font-weight: 700; }
+
+    /* ── Demo Queries ── */
+    .query-list { list-style: none; margin: 16px 0; }
+    .query-item {
+      background: #f8faff;
+      border: 1px solid #e0e7ff;
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .query-num {
+      background: linear-gradient(135deg, #6366f1, #10b981);
+      color: white;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .query-text { font-style: italic; color: #374151; font-size: 13px; }
+    .query-tag { font-size: 11px; color: #6366f1; font-weight: 600; margin-bottom: 2px; }
+
+    /* ── Print ── */
+    @media print {
+      body { font-size: 13px; }
+      .cover { min-height: auto; padding: 40px 40px 60px; }
+      .cover h1 { font-size: 40px; }
+      .section { page-break-inside: avoid; }
+      .content { padding: 40px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════ COVER PAGE ════════════════════ -->
+<div class="cover">
+  <div class="cover-badge">Project Report — ETHIndia / Hackathon 2025</div>
+  <div class="cover-logo">⚡</div>
+  <h1>Industrial<span>IQ</span></h1>
+  <p class="cover-subtitle">AI-Powered Industrial Knowledge Intelligence Platform — Transforming Unstructured Plant Data into Actionable Intelligence</p>
+  <div class="cover-divider"></div>
+  <div class="cover-meta">
+    <div class="cover-meta-item">
+      <div class="label">Category</div>
+      <div class="value">Enterprise AI</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="label">Track</div>
+      <div class="value">Industrial IoT & Safety</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="label">Stack</div>
+      <div class="value">LangGraph · Neo4j · FastAPI</div>
+    </div>
+  </div>
+  <div class="cover-team">
+    <div class="team-chip">
+      <div class="name">Vaibhav</div>
+      <div class="role">Data &amp; Storage</div>
+    </div>
+    <div class="team-chip">
+      <div class="name">Mohit</div>
+      <div class="role">Intelligence &amp; Application</div>
+    </div>
+    <div class="team-chip">
+      <div class="name">Kavyansh</div>
+      <div class="role">UI + Compliance</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ CONTENT ════════════════════ -->
+<div class="content">
+
+  <!-- 1. Problem Statement -->
+  <div class="section">
+    <div class="section-number">Section 01</div>
+    <h2>Problem Statement</h2>
+    <p>Industrial plants and manufacturing facilities generate an enormous volume of <strong>unstructured and siloed data</strong> — P&IDs (Piping &amp; Instrumentation Diagrams), maintenance logs, safety inspection reports, compliance manuals (OSHA, OISD), and incident records. This data lives in disconnected PDFs, spreadsheets, and legacy databases.</p>
+
+    <div class="problem-grid">
+      <div class="problem-card">
+        <div class="icon">⏱️</div>
+        <div class="title">Prolonged Downtime</div>
+        <p>Engineers waste hours searching disconnected PDFs during Root Cause Analysis (RCA), extending equipment downtime.</p>
+      </div>
+      <div class="problem-card">
+        <div class="icon">⚠️</div>
+        <div class="title">Compliance Risk</div>
+        <p>Manual verification of safety regulations (OSHA, OISD, Factory Act) is error-prone and increases audit risk.</p>
+      </div>
+      <div class="problem-card">
+        <div class="icon">🔁</div>
+        <div class="title">Recurring Failures</div>
+        <p>Lessons learned from past incidents are buried in old reports, leading to the same failures repeating.</p>
+      </div>
+      <div class="problem-card">
+        <div class="icon">🧠</div>
+        <div class="title">Knowledge Loss</div>
+        <p>Institutional knowledge leaves with experienced operators. New engineers have no structured way to access it.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Solution -->
+  <div class="section">
+    <div class="section-number">Section 02</div>
+    <h2>Our Solution: IndustrialIQ</h2>
+    <div class="highlight-box">
+      <p>IndustrialIQ is a <strong>multi-modal, multi-agent AI platform</strong> that ingests industrial documents of any format, extracts structured knowledge into a graph database, and enables plant engineers to query it in natural language — receiving accurate, cited, and confidence-scored answers in seconds.</p>
+    </div>
+    <p>The system unifies <strong>semantic vector search</strong> (ChromaDB) with <strong>graph-based relationship traversal</strong> (Neo4j) through a weighted hybrid retrieval engine, then routes queries to specialized AI agents orchestrated by a LangGraph supervisor.</p>
+
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="icon">📄</div>
+        <div class="title">Multi-Modal Ingestion</div>
+        <p>Processes PDF, DOCX, XLSX, TXT, PNG/JPG (P&IDs), and EML files in a unified pipeline.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">👁️</div>
+        <div class="title">Vision & OCR</div>
+        <p>GPT-4 Vision + Tesseract OCR extracts text and relationships from engineering diagrams.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🕸️</div>
+        <div class="title">Knowledge Graph</div>
+        <p>Entities and relationships extracted and stored in Neo4j with full provenance and confidence scores.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🔍</div>
+        <div class="title">Hybrid Retrieval</div>
+        <p>ChromaDB vector search combined with Neo4j graph traversal and a weighted reranker.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🤖</div>
+        <div class="title">Multi-Agent AI</div>
+        <p>LangGraph supervisor dispatches to Maintenance, Compliance, Copilot, and Lessons Learned agents in parallel.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">✅</div>
+        <div class="title">Traceability</div>
+        <p>Every answer is backed by source citations with document names and confidence percentages.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Architecture -->
+  <div class="section">
+    <div class="section-number">Section 03</div>
+    <h2>System Architecture</h2>
+
+    <h3>Query Pipeline</h3>
+    <div class="arch-flow">
+<span class="highlight">User Query</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+&nbsp;&nbsp;&nbsp;&nbsp;▼<br>
+<span class="highlight">FastAPI Gateway</span> <span style="color:#475569">(backend/api/main.py)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+&nbsp;&nbsp;&nbsp;&nbsp;▼<br>
+<span class="highlight">LangGraph Supervisor</span> <span style="color:#475569">(backend/agents/supervisor.py)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+&nbsp;&nbsp;&nbsp;&nbsp;├─ <span class="accent">1. classify_node</span> ─── Query Classifier <span style="color:#475569">(single-fact / multi-hop / aggregation)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+&nbsp;&nbsp;&nbsp;&nbsp;├─ <span class="accent">2. retrieve_node</span> ─┬── ChromaDB Vector Search <span style="color:#475569">(always runs)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── Neo4j Graph Traversal <span style="color:#475569">(multi-hop / low-confidence fallback)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─ Weighted Reranker <span style="color:#475569">(vector=0.6, graph=0.4)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+&nbsp;&nbsp;&nbsp;&nbsp;├─ <span class="accent">3. dispatch_node</span> ─── Specialist Agents <span style="color:#475569">(parallel, immutable context)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <span class="highlight">CopilotAgent</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#475569">(general Q&A)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <span class="highlight">MaintenanceAgent</span>&nbsp;&nbsp;&nbsp;<span style="color:#475569">(RCA, MTBF, work orders)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <span class="highlight">ComplianceAgent</span>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#475569">(OSHA, OISD, Factory Act)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── <span class="highlight">LessonsLearnedAgent</span><span style="color:#475569">(failure patterns, history)</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+&nbsp;&nbsp;&nbsp;&nbsp;└─ <span class="accent">4. synthesize_node</span> ── Final answer + citations + confidence score<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼<br>
+<span class="highlight">AgentResponse</span> <span style="color:#475569">{ answer, citations, confidence, graph_path, query_type, latency_ms }</span>
+    </div>
+
+    <h3>Document Ingestion Pipeline</h3>
+    <div class="arch-flow">
+<span class="highlight">New Document</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+&nbsp;&nbsp;&nbsp;&nbsp;├─ <span class="accent">Fingerprint Check</span> (SHA-256) ── already seen? → SKIP<br>
+&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+&nbsp;&nbsp;&nbsp;&nbsp;├─ <span class="accent">Parse</span> (per-type router)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── PDF &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ pdfplumber + OCR fallback<br>
+&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── P&ID/IMG →  OpenCV preprocess + pytesseract + GPT-4V<br>
+&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── Excel &nbsp;&nbsp;&nbsp;→ openpyxl (spatial layout preserved)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── DOCX &nbsp;&nbsp;&nbsp;&nbsp;→ python-docx<br>
+&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── TXT/EML  → direct read<br>
+&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+&nbsp;&nbsp;&nbsp;&nbsp;├─ <span class="accent">Semantic Chunking</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;├─ <span class="accent">Embed chunks</span> → ChromaDB<br>
+&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+&nbsp;&nbsp;&nbsp;&nbsp;└─ <span class="accent">Two-Pass Extraction</span> → Neo4j<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── Pass 1: LLM proposes {nodes, edges} against pinned ontology<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── Pass 2: Verifier assigns confidence, rejects &lt; 0.70
+    </div>
+  </div>
+
+  <!-- 4. Tech Stack -->
+  <div class="section">
+    <div class="section-number">Section 04</div>
+    <h2>Technology Stack</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Layer</th>
+          <th>Technology</th>
+          <th>Purpose</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Agent Orchestration</td>
+          <td><span class="badge badge-purple">LangGraph</span> <span class="badge badge-purple">LangChain</span></td>
+          <td>Multi-agent stateful workflow with conditional routing</td>
+        </tr>
+        <tr>
+          <td>Backend API</td>
+          <td><span class="badge badge-green">FastAPI</span></td>
+          <td>Async REST API with OpenAPI docs</td>
+        </tr>
+        <tr>
+          <td>LLM / Vision</td>
+          <td><span class="badge badge-blue">GPT-4o</span></td>
+          <td>Reasoning, extraction, Cypher generation, vision OCR</td>
+        </tr>
+        <tr>
+          <td>Vector Store</td>
+          <td><span class="badge badge-green">ChromaDB</span></td>
+          <td>Semantic similarity search on document chunks</td>
+        </tr>
+        <tr>
+          <td>Graph Database</td>
+          <td><span class="badge badge-blue">Neo4j</span></td>
+          <td>Multi-hop relationship traversal via Cypher</td>
+        </tr>
+        <tr>
+          <td>Embeddings</td>
+          <td><span class="badge badge-purple">text-embedding-3-small</span></td>
+          <td>OpenAI embedding model for vector search</td>
+        </tr>
+        <tr>
+          <td>OCR / Vision</td>
+          <td><span class="badge badge-orange">Tesseract</span> <span class="badge badge-orange">OpenCV</span></td>
+          <td>P&ID diagram text and structure extraction</td>
+        </tr>
+        <tr>
+          <td>Frontend</td>
+          <td><span class="badge badge-blue">Next.js 16</span> <span class="badge badge-blue">TailwindCSS</span></td>
+          <td>Real-time chat UI with citations and graph visualization</td>
+        </tr>
+        <tr>
+          <td>Evaluation</td>
+          <td><span class="badge badge-green">Ragas</span> <span class="badge badge-green">Langfuse</span></td>
+          <td>Answer relevancy, faithfulness, and latency metrics</td>
+        </tr>
+        <tr>
+          <td>Deployment</td>
+          <td><span class="badge badge-purple">Render</span> <span class="badge badge-purple">Vercel</span></td>
+          <td>Backend on Render (Docker), Frontend on Vercel</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 5. Knowledge Graph Schema -->
+  <div class="section">
+    <div class="section-number">Section 05</div>
+    <h2>Knowledge Graph Ontology</h2>
+    <p>The shared ontology (<code>backend/shared/ontology.py</code>) is a locked contract that all team members depend on and cannot change without team agreement.</p>
+    <table>
+      <thead>
+        <tr><th>Node Types</th><th>Edge Types</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Equipment, Document, Parameter, Person, Regulation, Event</td>
+          <td>HAS_PARAMETER, DOCUMENTED_IN, PERFORMED_BY, PRECEDED_BY, REGULATED_BY, CONNECTED_TO, MENTIONS, CAUSED_BY</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>Every edge carries <strong>full provenance</strong>: source document ID, confidence score, extraction pass ID, timestamp, and verified flag. Only edges with confidence ≥ 0.70 are written to the graph.</p>
+  </div>
+
+  <!-- 6. Team -->
+  <div class="section">
+    <div class="section-number">Section 06</div>
+    <h2>Team &amp; Responsibilities</h2>
+    <div class="team-grid">
+      <div class="team-card">
+        <div class="team-avatar avatar-v">V</div>
+        <div class="name">Vaibhav</div>
+        <div class="role">Data &amp; Storage</div>
+        <ul>
+          <li>Ingestion pipeline</li>
+          <li>Multi-modal parsers</li>
+          <li>Two-pass LLM extraction</li>
+          <li>Neo4j schema &amp; writer</li>
+          <li>SHA-256 deduplication</li>
+        </ul>
+      </div>
+      <div class="team-card">
+        <div class="team-avatar avatar-m">M</div>
+        <div class="name">Mohit</div>
+        <div class="role">Intelligence &amp; Application</div>
+        <ul>
+          <li>LangGraph Supervisor</li>
+          <li>Hybrid retrieval engine</li>
+          <li>Cypher generation</li>
+          <li>Weighted reranker</li>
+          <li>Ragas eval pipeline</li>
+        </ul>
+      </div>
+      <div class="team-card">
+        <div class="team-avatar avatar-k">K</div>
+        <div class="name">Kavyansh</div>
+        <div class="role">UI + Compliance</div>
+        <ul>
+          <li>Next.js frontend</li>
+          <li>Chat interface</li>
+          <li>Compliance agent</li>
+          <li>Lessons Learned agent</li>
+          <li>Document upload UI</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. Demo Queries -->
+  <div class="section">
+    <div class="section-number">Section 07</div>
+    <h2>Suggested Demo Queries (for Judges)</h2>
+    <p>The repository includes a pre-ingested ChromaDB vector store with 10 sample industrial documents. No setup required — just run and ask:</p>
+    <ul class="query-list">
+      <li class="query-item">
+        <div class="query-num">1</div>
+        <div>
+          <div class="query-tag">🔧 Maintenance & RCA</div>
+          <div class="query-text">"What caused the last failure of Pump P-101 and what is its MTBF?"</div>
+        </div>
+      </li>
+      <li class="query-item">
+        <div class="query-num">2</div>
+        <div>
+          <div class="query-tag">📋 Compliance</div>
+          <div class="query-text">"Are we compliant with OSHA gas detector calibration requirements?"</div>
+        </div>
+      </li>
+      <li class="query-item">
+        <div class="query-num">3</div>
+        <div>
+          <div class="query-tag">🕸️ Multi-Hop Graph</div>
+          <div class="query-text">"Show maintenance history for all equipment connected to Valve V-201."</div>
+        </div>
+      </li>
+      <li class="query-item">
+        <div class="query-num">4</div>
+        <div>
+          <div class="query-tag">📚 Lessons Learned</div>
+          <div class="query-text">"Are there any recurring failure patterns in our blast furnace equipment?"</div>
+        </div>
+      </li>
+      <li class="query-item">
+        <div class="query-num">5</div>
+        <div>
+          <div class="query-tag">👁️ Vision / P&ID</div>
+          <div class="query-text">"What are the operating parameters shown in the P&ID diagram?"</div>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- 8. Deployment -->
+  <div class="section">
+    <div class="section-number">Section 08</div>
+    <h2>Deployment Architecture</h2>
+    <table>
+      <thead>
+        <tr><th>Service</th><th>Provider</th><th>URL</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Frontend (Next.js)</td>
+          <td><span class="badge badge-purple">Vercel</span></td>
+          <td>https://eth-[hash].vercel.app</td>
+        </tr>
+        <tr>
+          <td>Backend API (FastAPI)</td>
+          <td><span class="badge badge-green">Render</span></td>
+          <td>https://industrialiq-api.onrender.com</td>
+        </tr>
+        <tr>
+          <td>Graph Database</td>
+          <td><span class="badge badge-blue">Neo4j AuraDB</span></td>
+          <td>bolt://...aura.neo4j.io</td>
+        </tr>
+        <tr>
+          <td>Source Code</td>
+          <td><span class="badge badge-orange">GitHub</span></td>
+          <td>github.com/Mohit20198/ETH</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Footer -->
+  <div style="margin-top: 60px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center; color: #9ca3af; font-size: 12px;">
+    <p><strong>IndustrialIQ</strong> — Built with ❤️ by Vaibhav, Mohit &amp; Kavyansh</p>
+    <p style="margin-top: 4px;">github.com/Mohit20198/ETH</p>
+  </div>
+
+</div>
+</body>
+</html>

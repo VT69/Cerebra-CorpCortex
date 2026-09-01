@@ -1,0 +1,18 @@
+
+VINDHYA STEEL WORKS
+Plant: Kalinganagar Facility
+Document: Blast Furnace BF-1 Maintenance Manual
+Date: 2024-01-15
+Equipment ID: BF-1
+
+1. SYSTEM OVERVIEW
+Blast Furnace BF-1 has a working volume of 3200 cubic meters. It operates at a design pressure of 2.5 bar. The cooling system utilizes closed-circuit demineralized water.
+
+2. MAINTENANCE SCHEDULE
+- Daily: Inspect tuyere cooling water flow.
+- Weekly: Check top gas analyzer calibration.
+- Monthly: Lubricate charging bell mechanism using high-temperature grease (Spec: VSW-HTG-99).
+
+3. FAILURE MODES & TROUBLESHOOTING
+- High Hearth Temperature: Indicates refractory wear. Immediate action: Reduce blast temperature and inject titanium-bearing material.
+- Cooling Water Leak: Detected by hydrogen spike in top gas. Action: Isolate suspected stave immediately.

@@ -1,0 +1,7 @@
+[
+  { "key": "NEO4J_URI", "value": "neo4j+s://<YOUR_AURA_ID>.databases.neo4j.io" },
+  { "key": "NEO4J_USERNAME", "value": "<YOUR_AURA_USERNAME>" },
+  { "key": "NEO4J_PASSWORD", "value": "<YOUR_AURA_PASSWORD>" },
+  { "key": "OPENAI_API_KEY", "value": "<YOUR_OPENAI_API_KEY>" },
+  { "key": "CORS_ORIGINS", "value": "http://localhost:3000,https://<YOUR_VERCEL_URL>.vercel.app" }
+]

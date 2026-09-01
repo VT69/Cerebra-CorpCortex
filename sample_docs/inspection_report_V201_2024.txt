@@ -1,0 +1,59 @@
+INSPECTION REPORT
+=================
+Report No: INS-2024-087
+Inspection Type: Annual Statutory Inspection
+Date: 20-January-2024
+Inspector: Priya Mehta (Inspection Engineer, CPCB Certified)
+Employee ID: IE-0156
+
+Equipment: Pressure Vessel V-201
+Tag: V-201
+Service: HP Separator
+Location: Unit 2, Bay 4
+Design Pressure: 15 bar(g)
+Design Temperature: 120°C
+Operating Pressure: 12.5 bar(g)
+Operating Temperature: 95°C
+Capacity: 8.5 m³
+Material: SA-516 Grade 70
+Year of Manufacture: 2011
+
+Regulatory Basis: OISD-STD-106 (Pressure Vessels), Factories Act Rule 61
+
+INSPECTION FINDINGS:
+
+1. Shell Thickness Measurement
+   Required minimum thickness: 8.0 mm (as per design)
+   Measured thickness: 9.2 mm (UTM readings at 12 locations)
+   Status: SATISFACTORY - Corrosion allowance remains adequate (1.2 mm remaining)
+
+2. Pressure Relief Valve - PV-201A
+   Last calibration date: 15-January-2022
+   Required calibration frequency: Every 2 years (OISD-STD-106 Clause 7.4)
+   Status: OVERDUE - Calibration due January 2024, not yet completed
+   Action Required: Schedule calibration within 30 days. HIGH PRIORITY.
+
+3. Nozzle and Flange Inspection
+   N1 (Inlet, 6" 300# RFWN): No visible corrosion, gasket in good condition
+   N2 (Outlet, 4" 300# RFWN): Minor surface corrosion, paint touch-up required
+   N3 (Drain, 2" 150# RFWN): SATISFACTORY
+   Status: MINOR DEFICIENCY on N2 outlet nozzle
+
+4. Safety Valve PV-201B (Spare)
+   Status: Operability test passed. Set pressure 15.5 bar(g) confirmed.
+
+5. Internal Inspection (via manway)
+   Demister pad: 15% blocked - cleaning recommended at next opportunity
+   Internal coating: No signs of disbonding or blistering
+   Bottom sediment: Minimal, drained during inspection
+
+COMPLIANCE STATUS:
+- OISD-STD-106: PARTIALLY COMPLIANT (PRV calibration overdue)
+- Factories Act Rule 61: CERTIFICATE RENEWED pending PRV calibration closure
+
+NEXT INSPECTION DUE: January 2026
+
+Corrective Actions Required:
+1. [CRITICAL] Calibrate PV-201A PRV within 30 days
+2. [LOW] Touch-up paint on N2 nozzle at next turnaround
+3. [LOW] Clean demister pad at next planned shutdown

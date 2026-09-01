@@ -1,0 +1,22 @@
+
+VINDHYA STEEL WORKS
+Standard Operating Procedure (SOP)
+Title: Lockout/Tagout (LOTO) Procedure for Rotating Equipment
+SOP No: VSW-SAF-042
+
+1. PURPOSE
+To ensure that machines and equipment are isolated from all potentially hazardous energy before employees perform servicing or maintenance activities.
+
+2. SCOPE
+Applies to all rotating equipment at the Kalinganagar facility, including pumps, compressors, and conveyors.
+
+3. PROCEDURE
+3.1. Preparation: Identify all energy sources (electrical, mechanical, pneumatic).
+3.2. Notification: Inform the Shift In-Charge and affected operators.
+3.3. Shutdown: Stop the equipment using normal operating controls.
+3.4. Isolation: Physically isolate energy sources (e.g., open breakers, close valves).
+3.5. Lock and Tag: Apply personal safety locks and "Do Not Operate" tags to isolation devices.
+3.6. Verification: Attempt to start the equipment to verify complete isolation.
+
+4. SPECIAL INSTRUCTIONS FOR CONVEYORS
+For conveyor systems like C-202, ensure that tension is released or mechanically blocked to prevent unexpected movement due to gravity or stored elastic energy.

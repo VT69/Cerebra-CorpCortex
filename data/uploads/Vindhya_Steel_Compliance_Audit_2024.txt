@@ -1,0 +1,17 @@
+
+VINDHYA STEEL WORKS
+External Compliance Audit Report
+Standard: Factory Act 1948 & State Rules
+Date: 2024-02-28
+Auditor: National Safety Council (NSC)
+
+FINDINGS & OBSERVATIONS
+1. Equipment Safety (Section 21)
+- Blast Furnace BF-1: Compliant. All interlocking systems on the charging mechanism are functional.
+- Conveyor C-202: Non-conformance noted. The emergency pull-cord along the eastern walkway was sagging and required excess force to actuate. Must be tightened within 15 days.
+
+2. Confined Space Entry (Section 36)
+- The gas monitoring logs for the Gas Cleaning Plant (GCP) were reviewed. All records are in order. The calibration of portable CO monitors is up to date.
+
+3. Pressure Vessels (Section 31)
+- Compressor Air Receiver AR-105: Hydro-test certificate is valid until 2026. Safety relief valves were calibrated last month. Compliant.

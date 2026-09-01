@@ -1,0 +1,57 @@
+version: "3.9"
+
+services:
+  neo4j:
+    image: neo4j:5.18-community
+    container_name: industrialiq-neo4j
+    ports:
+      - "7474:7474"   # Browser UI
+      - "7687:7687"   # Bolt protocol
+    environment:
+      NEO4J_AUTH: neo4j/industrialiq123
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_memory_heap_initial__size: 512m
+      NEO4J_dbms_memory_heap_max__size: 1G
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:7474"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  langfuse:
+    image: langfuse/langfuse:latest
+    container_name: industrialiq-langfuse
+    ports:
+      - "3001:3000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@langfuse-db:5432/langfuse
+      NEXTAUTH_SECRET: industrialiq-secret-key-change-in-prod
+      NEXTAUTH_URL: http://localhost:3001
+      SALT: industrialiq-salt
+    depends_on:
+      langfuse-db:
+        condition: service_healthy
+
+  langfuse-db:
+    image: postgres:15
+    container_name: industrialiq-langfuse-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: langfuse
+    volumes:
+      - langfuse_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  neo4j_data:
+  neo4j_logs:
+  langfuse_db:

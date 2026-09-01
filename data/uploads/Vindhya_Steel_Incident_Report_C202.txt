@@ -1,0 +1,18 @@
+
+VINDHYA STEEL WORKS - INCIDENT REPORT
+Incident ID: INC-2024-089
+Date: 2024-03-12
+Location: Sinter Plant, Conveyor Belt C-202
+Reported By: Rajesh Sharma, Shift In-Charge
+Severity: Near Miss (High Potential)
+
+DESCRIPTION
+At 14:30 hours, during routine operation, a loud screeching noise was heard from the drive pulley of Conveyor Belt C-202. The operator immediately hit the emergency stop. Upon inspection, it was found that the main bearing (Part # BRG-405) had seized due to complete lubrication failure. 
+
+ROOT CAUSE ANALYSIS
+The auto-lubrication system for C-202 had a blocked line. The blockage prevented grease from reaching the bearing. The daily inspection checklist did not include a physical verification of grease flow at the bearing housing.
+
+CORRECTIVE ACTIONS
+1. Replaced the seized bearing and cleared the auto-lube line.
+2. Updated the maintenance checklist to include visual confirmation of grease at the bearing point.
+3. Scheduled ultrasonic vibration analysis for all critical conveyor drives monthly.

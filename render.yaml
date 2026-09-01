@@ -1,0 +1,56 @@
+services:
+  - type: web
+    name: industrialiq-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false          # Set manually in Render dashboard
+      - key: OPENAI_MODEL
+        value: gpt-4o
+      - key: OPENAI_VISION_MODEL
+        value: gpt-4o
+      - key: NEO4J_URI
+        sync: false          # Set manually in Render dashboard (AuraDB bolt URI)
+      - key: NEO4J_USERNAME
+        sync: false
+      - key: NEO4J_PASSWORD
+        sync: false
+      - key: CHROMA_PERSIST_DIR
+        value: ./data/chroma
+      - key: CHROMA_COLLECTION_NAME
+        value: industrialiq_docs
+      - key: EMBEDDING_MODEL
+        value: text-embedding-3-small
+      - key: DOC_UPLOAD_DIR
+        value: ./data/uploads
+      - key: DOC_FINGERPRINT_CACHE
+        value: ./data/fingerprints.json
+      - key: API_HOST
+        value: 0.0.0.0
+      - key: API_PORT
+        value: "8000"
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: VECTOR_TOP_K
+        value: "10"
+      - key: GRAPH_HOP_LIMIT
+        value: "3"
+      - key: RETRIEVAL_CONFIDENCE_THRESHOLD
+        value: "0.70"
+      - key: RERANKER_VECTOR_WEIGHT
+        value: "0.6"
+      - key: RERANKER_GRAPH_WEIGHT
+        value: "0.4"
+      - key: TESSERACT_CMD
+        value: /usr/bin/tesseract
+      - key: LANGFUSE_PUBLIC_KEY
+        value: ""
+      - key: LANGFUSE_SECRET_KEY
+        value: ""
+      - key: LANGFUSE_HOST
+        value: ""
+      - key: PYTHONIOENCODING
+        value: utf-8

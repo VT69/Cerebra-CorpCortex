@@ -1,0 +1,6 @@
+{
+  "framework": "nextjs",
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "https://industrialiq-api.onrender.com/$1" }
+  ]
+}

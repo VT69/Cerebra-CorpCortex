@@ -1,0 +1,16 @@
+
+VINDHYA STEEL WORKS
+Condition Monitoring Log
+Equipment: Boiler Feed Water Pump P-101
+Method: Ultrasonic Vibration Analysis
+Analyst: Amit Patel
+
+LOG ENTRIES
+- 2024-01-10: Overall vibration 2.4 mm/s RMS. Normal operation. Spectrum shows dominant 1X peak.
+- 2024-02-12: Overall vibration 2.6 mm/s RMS. Normal operation.
+- 2024-03-15: Overall vibration 4.1 mm/s RMS. Alert limit exceeded.
+  - Spectrum Analysis: Elevated 2X and 3X peaks observed. Phase analysis indicates parallel misalignment across the coupling.
+  - Recommendation: Schedule laser alignment during the next planned shutdown. Check foundation bolts for tightness.
+
+- 2024-04-02: Maintenance performed. Laser alignment completed. Foundation bolts tightened (2 were found loose).
+- 2024-04-05: Post-maintenance reading: 1.8 mm/s RMS. Alignment is excellent. Return to normal monitoring schedule.
