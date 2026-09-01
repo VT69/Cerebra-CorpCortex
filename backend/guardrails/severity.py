@@ -1,45 +1,31 @@
 """
-High-stakes query severity classifier — Section 3 of guardrails.
+High-stakes query severity classifier.
 
-Fast keyword check (no LLM call) to flag safety-critical queries.
-When a query is high-stakes AND the system's confidence is Medium or Low,
-an escalation notice is added to the response directing the user to verify
-with a qualified engineer or safety officer before acting.
+Fast keyword scan (no LLM call, ~0ms) to flag safety-critical queries.
+When a high-stakes query has Medium or Low confidence after groundedness
+verification, an escalation notice is attached directing the user to
+verify with a qualified professional before acting.
 
-Every high-stakes query is logged to ./data/escalation_audit.jsonl
-regardless of whether escalation triggered — this provides an audit trail
-demonstrating the system knows when to defer to humans.
+Every high-stakes query is audit-logged regardless of escalation outcome.
 """
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Keyword list
-# ─────────────────────────────────────────────────────────────────────────────
+import logging
 
-HIGH_STAKES_KEYWORDS = [
-    "lockout",
-    "tagout",
-    "loto",
-    "shutdown",
-    "permit",
-    "hazard",
-    "gas leak",
-    "evacuation",
-    "confined space",
-    "hot work",
-    "pressure release",
-    "emergency",
-    "compliance violation",
-    "safety procedure",
-    "explosion",
-    "fire hazard",
-    "toxic",
-    "asphyxiation",
-    "blowdown",
-    "relief valve",
-]
+logger = logging.getLogger(__name__)
 
-# Labels that warrant escalation when combined with high-stakes query
-_ESCALATION_LABELS = {"Medium", "Low"}
+
+# ── Configuration ────────────────────────────────────────────────────────────
+
+HIGH_STAKES_KEYWORDS: frozenset[str] = frozenset([
+    "lockout", "tagout", "loto", "shutdown", "permit",
+    "hazard", "gas leak", "evacuation", "confined space",
+    "hot work", "pressure release", "emergency",
+    "compliance violation", "safety procedure",
+    "explosion", "fire hazard", "toxic", "asphyxiation",
+    "blowdown", "relief valve",
+])
+
+_ESCALATION_LABELS: frozenset[str] = frozenset({"Medium", "Low"})
 
 ESCALATION_NOTICE = (
     "⚠ This question involves a safety-critical procedure. "
@@ -48,15 +34,10 @@ ESCALATION_NOTICE = (
 )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Public API
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Public API ───────────────────────────────────────────────────────────────
 
 def is_high_stakes(query: str) -> bool:
-    """
-    Fast O(n) keyword scan — no LLM call, no latency impact.
-    Returns True if the query touches any safety-critical domain.
-    """
+    """Fast O(n·k) keyword scan — no LLM call, no latency impact."""
     q = query.lower()
     return any(kw in q for kw in HIGH_STAKES_KEYWORDS)
 
@@ -66,13 +47,13 @@ def get_escalation_notice(
     confidence_label: str,
     high_stakes: bool | None = None,
 ) -> str:
-    """
-    Return the escalation notice string if conditions are met, else empty string.
+    """Return the escalation notice if the query is high-stakes and confidence
+    is insufficient, otherwise return an empty string.
 
     Args:
         query:            The user's original question.
-        confidence_label: "High" | "Medium" | "Low"
-        high_stakes:      Pass pre-computed flag to avoid re-checking keywords.
+        confidence_label: "High" | "Medium" | "Low" (post-groundedness).
+        high_stakes:      Pre-computed flag to avoid redundant keyword scan.
     """
     if high_stakes is None:
         high_stakes = is_high_stakes(query)

@@ -46,6 +46,14 @@ class Settings(BaseSettings):
     RERANKER_VECTOR_WEIGHT: float = 0.6
     RERANKER_GRAPH_WEIGHT: float = 0.4
 
+    # Guardrails
+    AUDIT_DIR: str = "./data"
+    INJECTION_SCAN_MAX_CHARS: int = 2000
+    GROUNDEDNESS_CAP_PARTIAL: float = 0.75
+    GROUNDEDNESS_CAP_LOW: float = 0.40
+    GROUNDEDNESS_UNSUPPORTED_RATIO: float = 0.5
+    PII_MIN_NAME_LENGTH: int = 3
+
     @property
     def cors_origins_list(self) -> list[str]:
         origins = [o.strip() for o in self.CORS_ORIGINS.split(",")]

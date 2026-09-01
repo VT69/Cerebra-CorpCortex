@@ -1,37 +1,46 @@
 """
-Audit log writers — shared by injection scanner and severity escalation.
+Append-only JSONL audit writers for injection attempts and severity escalations.
 
-All audit entries are append-only JSONL files stored under ./data/.
-Each entry is a single JSON object per line, timestamped.
-Never raises — logging failures must never block the main pipeline.
+All writes are synchronous, guarded by a module-level lock to prevent
+interleaved lines under concurrent async requests. Logging failures
+never propagate — the audit trail must not block the main pipeline.
 """
+
 import json
+import logging
 import os
+import threading
 from datetime import datetime, timezone
 
-# Audit file paths — relative to wherever the app is run from (project root)
-INJECTION_AUDIT_PATH = "./data/injection_audit.jsonl"
-ESCALATION_AUDIT_PATH = "./data/escalation_audit.jsonl"
+from backend.config import settings
+
+logger = logging.getLogger(__name__)
+
+_write_lock = threading.Lock()
 
 
-def _ensure_dir(path: str):
-    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+def _resolve_path(filename: str) -> str:
+    """Build the full audit file path from the configured audit directory."""
+    return os.path.join(settings.AUDIT_DIR, filename)
 
 
-def _append(path: str, record: dict):
-    """Append a single JSON record to a JSONL audit file. Never raises."""
+def _append(path: str, record: dict) -> None:
+    """Append a single timestamped JSON record to a JSONL file. Never raises."""
     try:
-        _ensure_dir(path)
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
         record["_logged_at"] = datetime.now(timezone.utc).isoformat()
-        with open(path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(record) + "\n")
-    except Exception as e:
-        print(f"[AuditLog] Failed to write to {path}: {e}")
+        line = json.dumps(record, default=str) + "\n"
+        with _write_lock:
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(line)
+    except Exception:
+        logger.exception("Failed to write audit record to %s", path)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Injection audit
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Injection audit ──────────────────────────────────────────────────────────
+
+_INJECTION_LOG = "injection_audit.jsonl"
+
 
 def log_injection_attempt(
     chunk_id: str,
@@ -40,13 +49,10 @@ def log_injection_attempt(
     text_preview: str,
     matched_patterns: list[str],
     llm_reasoning: str,
-):
-    """
-    Log a confirmed injection attempt to the injection audit file.
-    Only called when LLM classifier confirms is_injection_attempt == True.
-    """
-    _append(INJECTION_AUDIT_PATH, {
-        "event": "injection_attempt_confirmed",
+) -> None:
+    """Log a confirmed injection attempt (LLM classifier returned True)."""
+    _append(_resolve_path(_INJECTION_LOG), {
+        "event": "injection_confirmed",
         "chunk_id": chunk_id,
         "doc_id": doc_id,
         "file_name": file_name,
@@ -61,11 +67,9 @@ def log_injection_flagged(
     doc_id: str,
     file_name: str,
     matched_patterns: list[str],
-):
-    """
-    Log a regex-flagged (but LLM-cleared) chunk. Useful for tuning patterns.
-    """
-    _append(INJECTION_AUDIT_PATH, {
+) -> None:
+    """Log a regex-flagged chunk that was cleared by the LLM classifier."""
+    _append(_resolve_path(_INJECTION_LOG), {
         "event": "injection_flagged_cleared",
         "chunk_id": chunk_id,
         "doc_id": doc_id,
@@ -74,9 +78,10 @@ def log_injection_flagged(
     })
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Escalation audit
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Escalation audit ─────────────────────────────────────────────────────────
+
+_ESCALATION_LOG = "escalation_audit.jsonl"
+
 
 def log_high_stakes_query(
     query: str,
@@ -84,12 +89,9 @@ def log_high_stakes_query(
     confidence_label: str,
     escalated: bool,
     escalation_notice: str = "",
-):
-    """
-    Log every high-stakes query with its final confidence and whether
-    an escalation notice was shown to the user.
-    """
-    _append(ESCALATION_AUDIT_PATH, {
+) -> None:
+    """Log every high-stakes query regardless of whether escalation fired."""
+    _append(_resolve_path(_ESCALATION_LOG), {
         "event": "high_stakes_query",
         "query": query,
         "confidence": confidence,
