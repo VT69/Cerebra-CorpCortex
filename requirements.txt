@@ -12,6 +12,7 @@ langchain==0.2.5
 langchain-openai==0.1.13
 langchain-community==0.2.5
 langgraph==0.1.14
+aiosqlite==0.20.0          # LangGraph 0.1.x SQLite checkpointer (0.21+ removed Connection.is_alive)
 langsmith==0.1.77
 
 # ── Vector Store ──────────────────────────────────────────────────────────────

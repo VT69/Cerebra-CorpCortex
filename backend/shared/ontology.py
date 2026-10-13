@@ -75,6 +75,9 @@ class AgentResponse:
     # Guardrails fields (Section 1 + 3)
     groundedness_warning: list = field(default_factory=list)  # Unsupported claims list
     escalation_notice: str = ""         # Non-empty = safety-critical + low confidence
+    # Human-in-the-loop (fix 6)
+    status: str = "answered"            # "answered" | "abstained" | "pending_review" | "approved" | "edited" | "rejected"
+    review_id: str = ""                 # set when the answer is held for human review
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Document Types (for routing ingestion to the right parser)

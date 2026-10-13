@@ -42,6 +42,19 @@ export interface QueryResponse {
   // Guardrails fields
   groundedness_warning?: string[];
   escalation_notice?: string;
+  // Human-in-the-loop: high-stakes answers are withheld until reviewed
+  status?: "answered" | "abstained" | "pending_review" | "approved" | "edited" | "rejected";
+  review_id?: string;
+}
+
+export interface ReviewedAnswer {
+  review_id: string;
+  status: "pending_review" | "approved" | "edited" | "rejected";
+  answer?: string;
+  supporting_detail?: string;
+  citations?: Citation[];
+  confidence?: number;
+  confidence_label?: "High" | "Medium" | "Low";
 }
 
 export interface IngestResponse {
@@ -82,6 +95,13 @@ export async function queryKnowledgeBase(
     body: JSON.stringify({ question, session_id: sessionId }),
   });
   if (!res.ok) throw new Error(`Query failed: ${res.statusText}`);
+  return res.json();
+}
+
+// Poll a held (pending_review) answer until a safety reviewer decides.
+export async function getReviewedAnswer(reviewId: string): Promise<ReviewedAnswer> {
+  const res = await fetch(`${API_URL}/answer/${encodeURIComponent(reviewId)}`);
+  if (!res.ok) throw new Error(`Answer lookup failed: ${res.statusText}`);
   return res.json();
 }
 

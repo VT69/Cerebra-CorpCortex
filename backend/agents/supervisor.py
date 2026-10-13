@@ -15,10 +15,14 @@ ordering bugs — each agent appends its output, others read it read-only.
 """
 import asyncio
 import json
+import os
 import re
 import time
+import uuid
 from typing import Annotated, TypedDict
 
+import aiosqlite
+from langgraph.checkpoint.aiosqlite import AsyncSqliteSaver
 from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
 
@@ -37,7 +41,8 @@ from openai import AsyncOpenAI
 # Guardrails imports
 from backend.guardrails.groundedness import verify_groundedness, apply_groundedness_to_confidence
 from backend.guardrails.severity import is_high_stakes, get_escalation_notice
-from backend.guardrails.audit_log import log_high_stakes_query
+from backend.guardrails.audit_log import log_high_stakes_query, log_review_event
+from backend.review import queue as review_queue
 
 _oai = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 
@@ -76,6 +81,16 @@ SMALL_TALK_REPLY = (
 ABSTAIN_ANSWER = (
     "I don't have enough trusted information in the knowledge base to answer this. "
     "No document passed the safety checks for this question."
+)
+
+# Human-in-the-loop (fix 6): shown to the user while a high-stakes answer is held.
+PENDING_ANSWER = (
+    "This question involves a safety-critical procedure. A qualified safety reviewer "
+    "must approve the answer before it is shown. Your request is pending review."
+)
+REJECTED_ANSWER = (
+    "A safety reviewer did not approve an answer to this question. "
+    "Please consult your safety officer or the controlling SOP directly."
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -164,6 +179,9 @@ class SupervisorState(TypedDict):
     is_high_stakes: bool
     groundedness_warning: list[str]
     escalation_notice: str
+    # Human review state (fix 6)
+    review_status: str          # "none" | "approved" | "edited" | "rejected"
+    review_decision: dict       # written by the reviewer endpoint before resuming
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -419,6 +437,33 @@ async def groundedness_check_node(state: SupervisorState) -> SupervisorState:
 
 
 
+def needs_human_review(state: SupervisorState) -> bool:
+    """High-stakes answers are held for a reviewer (HITL_MODE=all), or only
+    those not labelled High (HITL_MODE=low_confidence)."""
+    if not state.get("is_high_stakes"):
+        return False
+    if settings.HITL_MODE == "low_confidence":
+        return state.get("confidence_label") != "High"
+    return True
+
+
+async def release_node(state: SupervisorState) -> SupervisorState:
+    """Runs only after a reviewer decision has been written to the paused
+    thread (the graph is compiled with interrupt_before=["release"])."""
+    decision = state.get("review_decision") or {}
+    kind = decision.get("decision")
+    update = {"escalation_notice": ""}
+    if kind == "approve":
+        update["review_status"] = "approved"
+    elif kind == "edit":
+        update.update(review_status="edited", final_answer=decision.get("edited_answer", ""),
+                      supporting_detail="", citation_note="")
+    else:  # reject, or anything unexpected: fail closed
+        update.update(review_status="rejected", final_answer=REJECTED_ANSWER, supporting_detail="",
+                      citation_note="", citations=[], graph_path=[])
+    return {**state, **update}
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
@@ -472,7 +517,7 @@ async def _run_agent(
 # Build LangGraph
 # ─────────────────────────────────────────────────────────────────────────────
 
-def build_supervisor() -> StateGraph:
+def build_supervisor(checkpointer=None):
     graph = StateGraph(SupervisorState)
     graph.add_node("classify", classify_node)
     graph.add_node("retrieve", retrieve_node)
@@ -480,6 +525,7 @@ def build_supervisor() -> StateGraph:
     graph.add_node("synthesize", synthesize_node)
     graph.add_node("guardrails", groundedness_check_node)  # Section 1 + 3
     graph.add_node("abstain", abstain_node)
+    graph.add_node("release", release_node)  # human-review gate (fix 6)
 
     graph.set_entry_point("classify")
 
@@ -498,13 +544,73 @@ def build_supervisor() -> StateGraph:
     graph.add_edge("abstain", END)
     graph.add_edge("dispatch", "synthesize")
     graph.add_edge("synthesize", "guardrails")  # guardrails wraps synthesis
-    graph.add_edge("guardrails", END)
 
+    def route_after_guardrails(state: SupervisorState):
+        # Deterministic rule — no LLM decides whether a human must review.
+        return "release" if needs_human_review(state) else END
+
+    graph.add_conditional_edges("guardrails", route_after_guardrails)
+    graph.add_edge("release", END)
+
+    # The graph pauses BEFORE "release"; the paused state is persisted by the
+    # checkpointer so a reviewer can resume it later, even after a restart.
+    if checkpointer is not None:
+        return graph.compile(checkpointer=checkpointer, interrupt_before=["release"])
     return graph.compile()
 
 
-# Compiled supervisor (singleton — import this)
-supervisor = build_supervisor()
+# Compiled supervisor with a persistent SQLite checkpointer. aiosqlite
+# connections are bound to an event loop, so one graph is kept per loop.
+_supervisor_cache: dict = {"loop": None, "graph": None}
+
+
+async def get_supervisor():
+    loop = asyncio.get_running_loop()
+    if _supervisor_cache["graph"] is None or _supervisor_cache["loop"] is not loop:
+        os.makedirs(os.path.dirname(settings.CHECKPOINT_DB_PATH) or ".", exist_ok=True)
+        conn = aiosqlite.connect(settings.CHECKPOINT_DB_PATH)
+        conn.daemon = True  # aiosqlite runs a worker thread; never block interpreter exit
+        await conn
+        _supervisor_cache.update(loop=loop, graph=build_supervisor(AsyncSqliteSaver(conn)), conn=conn)
+    return _supervisor_cache["graph"]
+
+
+def reset_supervisor() -> None:
+    """Drop the compiled graph (tests use this to simulate a process restart)."""
+    _supervisor_cache.update(loop=None, graph=None, conn=None)
+
+
+async def close_supervisor() -> None:
+    """Close the checkpointer connection (called on app shutdown)."""
+    conn = _supervisor_cache.get("conn")
+    if conn is not None and _supervisor_cache.get("loop") is asyncio.get_running_loop():
+        await conn.close()
+    reset_supervisor()
+
+
+def _thread(review_id: str) -> dict:
+    return {"configurable": {"thread_id": review_id}}
+
+
+def _response_from_state(state: dict, latency_ms: int, status: str, review_id: str = "") -> AgentResponse:
+    return AgentResponse(
+        answer=state["final_answer"],
+        citations=state.get("citations", []),
+        confidence=state.get("confidence", 0.0),
+        graph_path=state.get("graph_path", []),
+        query_type=state.get("query_type", ""),
+        agent_used=state.get("agents_used", []),
+        retrieval_strategy=state.get("retrieval_strategy", ""),
+        latency_ms=latency_ms,
+        supporting_detail=state.get("supporting_detail", ""),
+        citation_note=state.get("citation_note", ""),
+        confidence_label=state.get("confidence_label", "Low"),
+        retrieval_path=state.get("retrieval_path", "vector"),
+        groundedness_warning=state.get("groundedness_warning", []),
+        escalation_notice=state.get("escalation_notice", ""),
+        status=status,
+        review_id=review_id,
+    )
 
 
 async def run_query(question: str) -> AgentResponse:
@@ -550,25 +656,82 @@ async def run_query(question: str) -> AgentResponse:
         is_high_stakes=False,
         groundedness_warning=[],
         escalation_notice="",
+        review_status="none",
+        review_decision={},
     )
 
-    final_state = await supervisor.ainvoke(initial_state)
+    review_id = str(uuid.uuid4())  # also the LangGraph thread_id
+    graph = await get_supervisor()
+    final_state = await graph.ainvoke(initial_state, _thread(review_id))
     latency_ms = int((time.time() - start) * 1000)
 
-    return AgentResponse(
-        answer=final_state["final_answer"],
-        citations=final_state["citations"],
-        confidence=final_state["confidence"],
-        graph_path=final_state["graph_path"],
-        query_type=final_state["query_type"],
-        agent_used=final_state.get("agents_used", []),
-        retrieval_strategy=final_state["retrieval_strategy"],
-        latency_ms=latency_ms,
-        supporting_detail=final_state.get("supporting_detail", ""),
-        citation_note=final_state.get("citation_note", ""),
-        confidence_label=final_state.get("confidence_label", "Low"),
-        retrieval_path=final_state.get("retrieval_path", "vector"),
-        groundedness_warning=final_state.get("groundedness_warning", []),
-        escalation_notice=final_state.get("escalation_notice", ""),
-    )
+    snapshot = await graph.aget_state(_thread(review_id))
+    if snapshot.next and "release" in snapshot.next:
+        # Interrupted before release: WITHHOLD the draft. Only the pending
+        # notice and the review id leave the server.
+        review_queue.add_pending(review_id, question)
+        log_review_event("review_pending", review_id, question=question,
+                         confidence=final_state.get("confidence"),
+                         confidence_label=final_state.get("confidence_label"))
+        return AgentResponse(
+            answer=PENDING_ANSWER, citations=[], confidence=0.0, graph_path=[],
+            query_type=final_state.get("query_type", ""), agent_used=final_state.get("agents_used", []),
+            retrieval_strategy=final_state.get("retrieval_strategy", ""), latency_ms=latency_ms,
+            confidence_label="Low", escalation_notice=PENDING_ANSWER,
+            status="pending_review", review_id=review_id,
+        )
+
+    status = "abstained" if final_state["final_answer"] == ABSTAIN_ANSWER else "answered"
+    return _response_from_state(final_state, latency_ms, status)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Human review API (fix 6)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ReviewNotFound(Exception):
+    pass
+
+
+class ReviewAlreadyDecided(Exception):
+    pass
+
+
+async def get_review_state(review_id: str) -> tuple[dict, dict]:
+    """Return (queue row, graph state values) for a review id."""
+    row = review_queue.get(review_id)
+    if not row:
+        raise ReviewNotFound(review_id)
+    graph = await get_supervisor()
+    snapshot = await graph.aget_state(_thread(review_id))
+    return row, dict(snapshot.values or {})
+
+
+async def submit_review(review_id: str, decision: str, reviewer: str,
+                        edited_answer: str = "", note: str = "") -> AgentResponse:
+    """Record a reviewer decision on a paused thread and resume the graph."""
+    if not review_queue.get(review_id):
+        raise ReviewNotFound(review_id)
+    if not review_queue.claim(review_id, reviewer):
+        raise ReviewAlreadyDecided(review_id)
+
+    start = time.time()
+    try:
+        graph = await get_supervisor()
+        await graph.aupdate_state(
+            _thread(review_id),
+            {"review_decision": {"decision": decision, "reviewer": reviewer,
+                                 "edited_answer": edited_answer, "note": note}},
+            as_node="guardrails",  # re-evaluates the guardrails edge -> next is still "release"
+        )
+        final_state = await graph.ainvoke(None, _thread(review_id))
+    except Exception:
+        review_queue.release_claim(review_id)
+        raise
+
+    status = final_state.get("review_status", "rejected")
+    review_queue.finish(review_id, status)
+    log_review_event("review_decision", review_id, reviewer=reviewer, decision=decision,
+                     outcome=status, note=note)
+    return _response_from_state(final_state, int((time.time() - start) * 1000), status, review_id)
 

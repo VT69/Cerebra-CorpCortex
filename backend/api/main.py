@@ -3,14 +3,18 @@ FastAPI application — main entry point for the backend API.
 """
 import os
 from contextlib import asynccontextmanager
+from typing import Literal, Optional
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from backend.config import settings
-from backend.api.security import WriteAccess, write_limiter
-from backend.agents.supervisor import run_query
+from backend.api.security import WriteAccess, write_limiter, check_api_key
+from backend.agents.supervisor import (
+    run_query, submit_review, get_review_state, ReviewNotFound, ReviewAlreadyDecided,
+    close_supervisor,
+)
 from backend.ingestion.pipeline import ingest_document, load_fingerprint_cache, save_fingerprint_cache
 from backend.shared.ontology import AgentResponse
 from backend.guardrails.pii import redact_pii, redact_obj
@@ -29,6 +33,7 @@ async def lifespan(app: FastAPI):
     os.makedirs(settings.CHROMA_PERSIST_DIR, exist_ok=True)
     os.makedirs("./data/eval", exist_ok=True)
     yield
+    await close_supervisor()
 
 
 app = FastAPI(
@@ -72,6 +77,16 @@ class QueryResponse(BaseModel):
     # Guardrails fields
     groundedness_warning: list[str] = []
     escalation_notice: str = ""
+    # Human-in-the-loop
+    status: str = "answered"   # answered | abstained | pending_review | approved | edited | rejected
+    review_id: str = ""
+
+
+class ReviewDecision(BaseModel):
+    decision: Literal["approve", "edit", "reject"]
+    reviewer: str
+    edited_answer: Optional[str] = None
+    note: str = ""
 
 
 class IngestResponse(BaseModel):
@@ -127,9 +142,83 @@ async def query(request: QueryRequest):
             latency_ms=response.latency_ms,
             groundedness_warning=redact_obj(getattr(response, 'groundedness_warning', [])),
             escalation_notice=getattr(response, 'escalation_notice', ''),
+            status=response.status,
+            review_id=response.review_id,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Human review of high-stakes answers (fix 6)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _require_reviewer(request: Request) -> None:
+    check_api_key(request, settings.REVIEWER_API_KEY, "review")
+
+
+@app.get("/review/pending")
+async def list_pending_reviews(request: Request):
+    """Reviewer queue: held answers with the evidence needed to decide."""
+    _require_reviewer(request)
+    from backend.review import queue as review_queue
+    items = []
+    for row in review_queue.list_pending():
+        _, state = await get_review_state(row["review_id"])
+        items.append(redact_obj({
+            "review_id": row["review_id"],
+            "question": row["question"],
+            "created_at": row["created_at"],
+            "draft_answer": state.get("final_answer", ""),
+            "supporting_detail": state.get("supporting_detail", ""),
+            "confidence": state.get("confidence", 0.0),
+            "confidence_label": state.get("confidence_label", "Low"),
+            "groundedness_warning": state.get("groundedness_warning", []),
+            "citations": state.get("citations", []),
+            "agents_used": state.get("agents_used", []),
+        }))
+    return items
+
+
+@app.post("/review/{review_id}")
+async def decide_review(review_id: str, body: ReviewDecision, request: Request):
+    """Approve, edit or reject a held answer. The answer is released only here."""
+    _require_reviewer(request)
+    if not body.reviewer.strip():
+        raise HTTPException(status_code=400, detail="reviewer is required")
+    if body.decision == "edit" and not (body.edited_answer or "").strip():
+        raise HTTPException(status_code=400, detail="edited_answer is required for edit")
+    try:
+        resp = await submit_review(review_id, body.decision, body.reviewer.strip(),
+                                   edited_answer=body.edited_answer or "", note=body.note)
+    except ReviewNotFound:
+        raise HTTPException(status_code=404, detail="Unknown review id")
+    except ReviewAlreadyDecided:
+        raise HTTPException(status_code=409, detail="Review already decided")
+    return {"review_id": review_id, "status": resp.status}
+
+
+@app.get("/answer/{review_id}")
+async def get_answer(review_id: str):
+    """User polling endpoint for a held answer. Returns the answer only after
+    a reviewer has approved or edited it."""
+    try:
+        row, state = await get_review_state(review_id)
+    except ReviewNotFound:
+        raise HTTPException(status_code=404, detail="Unknown review id")
+    if row["status"] in ("pending_review", "deciding"):
+        return {"review_id": review_id, "status": "pending_review"}
+    released = row["status"] in ("approved", "edited")
+    return redact_obj({
+        "review_id": review_id,
+        "status": row["status"],
+        "answer": state.get("final_answer", ""),
+        "supporting_detail": state.get("supporting_detail", "") if released else "",
+        "citations": state.get("citations", []) if released else [],
+        "confidence": state.get("confidence", 0.0) if released else 0.0,
+        "confidence_label": state.get("confidence_label", "Low") if released else "Low",
+        "decided_at": row["decided_at"],
+    })
 
 
 @app.post("/ingest", response_model=IngestResponse, dependencies=[WriteAccess])

@@ -50,6 +50,13 @@ class Settings(BaseSettings):
     INGEST_API_KEY: Optional[str] = None
     RATE_LIMIT_WRITES_PER_MIN: int = 10
 
+    # Human-in-the-loop review of high-stakes answers
+    REVIEWER_API_KEY: Optional[str] = None     # required for /review/* (fail closed)
+    CHECKPOINT_DB_PATH: str = "./data/checkpoints.sqlite"
+    # "all": withhold every high-stakes answer until a reviewer decides.
+    # "low_confidence": withhold only high-stakes answers not labelled High.
+    HITL_MODE: str = "all"
+
     # Retrieval tuning
     VECTOR_TOP_K: int = 10
     GRAPH_HOP_LIMIT: int = 3

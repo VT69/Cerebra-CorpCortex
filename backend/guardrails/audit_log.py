@@ -81,6 +81,17 @@ def log_injection_flagged(
     })
 
 
+# ── Human review audit ───────────────────────────────────────────────────────
+
+_REVIEW_LOG = "review_audit.jsonl"
+
+
+def log_review_event(event: str, review_id: str, **fields) -> None:
+    """Log a review lifecycle event ("review_pending" / "review_decision"),
+    including reviewer identity and decision for decisions."""
+    _append(_resolve_path(_REVIEW_LOG), {"event": event, "review_id": review_id, **fields})
+
+
 # ── Escalation audit ─────────────────────────────────────────────────────────
 
 _ESCALATION_LOG = "escalation_audit.jsonl"

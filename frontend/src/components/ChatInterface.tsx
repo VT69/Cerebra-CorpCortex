@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { queryKnowledgeBase, QueryResponse } from "@/lib/api";
+import { queryKnowledgeBase, getReviewedAnswer, QueryResponse } from "@/lib/api";
 import { GraphPath } from "./GraphPath";
 import { Citations } from "./Citations";
 import {
@@ -236,6 +236,37 @@ export function ChatInterface() {
     stageTimerRef.current = setTimeout(tick, 1200);
   }, []);
 
+  // High-stakes answers come back as "pending_review"; poll until a reviewer
+  // approves, edits or rejects, then swap the released answer in.
+  const pollReview = useCallback((msgId: string, reviewId: string) => {
+    const timer = setInterval(async () => {
+      try {
+        const r = await getReviewedAnswer(reviewId);
+        if (r.status === "pending_review") return;
+        clearInterval(timer);
+        setMessages(prev => prev.map(m =>
+          m.id === msgId && m.metadata
+            ? {
+                ...m,
+                metadata: {
+                  ...m.metadata,
+                  status: r.status,
+                  answer: r.answer ?? m.metadata.answer,
+                  supporting_detail: r.supporting_detail ?? "",
+                  citations: r.citations ?? [],
+                  confidence: r.confidence ?? 0,
+                  confidence_label: r.confidence_label ?? "Low",
+                  escalation_notice: "",
+                },
+              }
+            : m
+        ));
+      } catch {
+        /* keep polling; transient errors are expected while the API restarts */
+      }
+    }, 5000);
+  }, []);
+
   const handleSubmit = async (questionText?: string) => {
     const text = (questionText ?? input).trim();
     if (!text || isLoading) return;
@@ -260,6 +291,9 @@ export function ChatInterface() {
           ? { ...m, stage: -1, metadata: response }
           : m
       ));
+      if (response.status === "pending_review" && response.review_id) {
+        pollReview(loadingId, response.review_id);
+      }
     } catch (err: any) {
       if (stageTimerRef.current) clearTimeout(stageTimerRef.current);
       setMessages(prev => prev.map(m =>
