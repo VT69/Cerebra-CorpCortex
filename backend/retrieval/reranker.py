@@ -5,8 +5,11 @@ into a single ranked list before final synthesis.
 Mohit owns this file.
 
 Strategy:
-  final_score = (VECTOR_WEIGHT * vector_score) + (GRAPH_WEIGHT * graph_score)
-  If top combined score < threshold → use union of both, not just top-k.
+  Order by Reciprocal Rank Fusion: rrf = 1/(k + rank_in_own_list). RRF uses
+  ranks, not raw scores, because cosine similarity and the graph path-length
+  heuristic are on different scales and cannot be added meaningfully.
+  final_score keeps each item's own relevance score (raw cosine for vector
+  hits, path heuristic for graph hits) for display and confidence.
 """
 from backend.config import settings
 
@@ -32,7 +35,7 @@ def rerank(
             "text": hit["text"],
             "vector_score": hit["score"],
             "graph_score": 0.0,
-            "final_score": hit["score"] * settings.RERANKER_VECTOR_WEIGHT,
+            "final_score": hit["score"],
             "metadata": hit.get("metadata", {}),
             "graph_path": [],
             "doc_id": hit.get("metadata", {}).get("doc_id", ""),
@@ -55,7 +58,7 @@ def rerank(
             "text": text,
             "vector_score": 0.0,
             "graph_score": graph_score,
-            "final_score": graph_score * settings.RERANKER_GRAPH_WEIGHT,
+            "final_score": graph_score,
             "metadata": {},
             "graph_path": hit.get("graph_path", []),
             "doc_id": hit.get("source_docs", [""])[0] if hit.get("source_docs") else "",
@@ -70,8 +73,14 @@ def rerank(
             seen_doc_ids.add(key)
             deduped.append(item)
 
-    # Sort by final_score descending
-    deduped.sort(key=lambda x: x["final_score"], reverse=True)
+    # Reciprocal Rank Fusion: rank each source on its own score, then fuse.
+    # Ties (same rank in both lists) prefer text passages over graph facts.
+    for source in ("vector", "graph"):
+        ranked = sorted((i for i in deduped if i["source"] == source),
+                        key=lambda x: x["final_score"], reverse=True)
+        for rank, item in enumerate(ranked, start=1):
+            item["rrf_score"] = 1.0 / (settings.RRF_K + rank)
+    deduped.sort(key=lambda x: (x["rrf_score"], x["source"] == "vector"), reverse=True)
 
     return deduped[:20]  # Top 20 for synthesis
 

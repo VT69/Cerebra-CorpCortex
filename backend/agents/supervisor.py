@@ -306,9 +306,11 @@ async def synthesize_node(state: SupervisorState) -> SupervisorState:
             "graph_path": [],
         }
 
-    # Use the highest-confidence specialist output as primary
-    # (copilot always runs; maintenance/compliance add on top)
-    primary = max(outputs, key=lambda x: x.get("confidence", 0))
+    # Every agent computes confidence with the same function over the same
+    # context, so confidence cannot choose between them. The primary answer is
+    # the first keyword-matched specialist (most specific frame); the copilot
+    # is the fallback when no specialist ran or all specialists failed.
+    primary = _pick_primary(outputs)
 
     # Pull structured fields from copilot's output
     final_answer = primary.get("answer", "")
@@ -436,6 +438,11 @@ def _select_agents(question: str) -> list[str]:
         agents.append("lessons_learned")
 
     return agents
+
+
+def _pick_primary(outputs: list[dict]) -> dict:
+    specialists = [o for o in outputs if o.get("agent_name") != "copilot"]
+    return specialists[0] if specialists else outputs[0]
 
 
 def _get_agent(name: str):

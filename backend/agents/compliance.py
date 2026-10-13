@@ -2,7 +2,7 @@
 Compliance Agent — maps regulations against current procedures and equipment states.
 Kavyansh owns this file.
 """
-from backend.agents.base import BaseAgent, _context_to_str, _prior_outputs_to_str
+from backend.agents.base import BaseAgent, _context_to_str, _prior_outputs_to_str, compute_confidence
 
 SYSTEM_PROMPT = """
 You are a regulatory compliance specialist for Indian heavy industry.
@@ -49,7 +49,7 @@ Provide:
 """
         answer = await self._call_llm(SYSTEM_PROMPT, user_prompt)
 
-        confidence = 0.78 if context else 0.40
+        confidence = compute_confidence(context)
 
         return {
             "answer": answer,

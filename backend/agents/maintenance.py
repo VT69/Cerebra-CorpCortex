@@ -3,7 +3,7 @@ Maintenance & RCA Agent — fuses work order history, failure records,
 OEM manuals, and inspection findings to generate maintenance recommendations.
 Mohit owns this file.
 """
-from backend.agents.base import BaseAgent, _context_to_str, _prior_outputs_to_str
+from backend.agents.base import BaseAgent, _context_to_str, _prior_outputs_to_str, compute_confidence
 
 SYSTEM_PROMPT = """
 You are an expert maintenance engineer and Root Cause Analysis (RCA) specialist
@@ -45,7 +45,7 @@ Provide:
 """
         answer = await self._call_llm(SYSTEM_PROMPT, user_prompt)
 
-        confidence = 0.80 if context else 0.45
+        confidence = compute_confidence(context)
 
         return {
             "answer": answer,

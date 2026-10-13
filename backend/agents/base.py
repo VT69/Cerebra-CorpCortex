@@ -42,6 +42,35 @@ def _context_to_str(context: list[dict], max_chars: int = 6000) -> str:
     )
 
 
+def compute_confidence(context: list[dict]) -> float:
+    """
+    Answer confidence from retrieval strength, shared by every agent so their
+    outputs are comparable. Uses the top RAW cosine similarity of the vector
+    hits (the reranker no longer scales it).
+
+    Bands (env-configurable, heuristic — not yet calibrated on labelled data):
+      top >= CONFIDENCE_HIGH_SIM   → 0.85–0.99 (High)
+      top >= CONFIDENCE_MEDIUM_SIM → 0.60–0.84 (Medium)
+      otherwise                    → 0.10–0.59 (Low)
+    Graph-only context has no passage similarity to anchor on → fixed 0.50 (Low).
+    The groundedness check can only lower this value afterwards.
+    """
+    if not context:
+        return 0.0
+    vector_scores = [item.get("vector_score", item.get("final_score", 0.0))
+                     for item in context if item.get("source", "vector") == "vector"]
+    if not vector_scores:
+        return 0.50
+
+    top = max(vector_scores)
+    high, medium = settings.CONFIDENCE_HIGH_SIM, settings.CONFIDENCE_MEDIUM_SIM
+    if top >= high:
+        return round(0.85 + min(0.14, (top - high) * 0.5), 3)
+    if top >= medium:
+        return round(min(0.84, 0.60 + (top - medium) / (high - medium) * 0.24), 3)
+    return round(min(0.59, 0.10 + max(top, 0.0) / medium * 0.49), 3)
+
+
 def _prior_outputs_to_str(prior_outputs: list[dict]) -> str:
     """Summarize prior agent outputs for cross-agent context."""
     if not prior_outputs:

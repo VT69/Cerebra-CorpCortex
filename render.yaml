@@ -40,10 +40,8 @@ services:
         value: "3"
       - key: RETRIEVAL_CONFIDENCE_THRESHOLD
         value: "0.70"
-      - key: RERANKER_VECTOR_WEIGHT
-        value: "0.6"
-      - key: RERANKER_GRAPH_WEIGHT
-        value: "0.4"
+      - key: RRF_K
+        value: "60"
       - key: TESSERACT_CMD
         value: /usr/bin/tesseract
       - key: LANGFUSE_PUBLIC_KEY

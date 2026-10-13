@@ -6,7 +6,7 @@ Updated: outputs structured JSON directly so supervisor.py can skip the
 redundant _structured_synthesize LLM call and stay fast.
 """
 import json
-from backend.agents.base import BaseAgent, _context_to_str, _prior_outputs_to_str
+from backend.agents.base import BaseAgent, _context_to_str, _prior_outputs_to_str, compute_confidence
 
 SYSTEM_PROMPT = """\
 You are an industrial knowledge copilot for a manufacturing/oil & gas facility.
@@ -61,9 +61,9 @@ Provide a clear, accurate answer based on the excerpts above."""
         supporting_detail = structured.get("supporting_detail", "")
         citation_note = structured.get("citation_note", "")
 
-        # Compute confidence deterministically from vector similarity scores
+        # Confidence from retrieval strength, same function as every agent
         # (more reliable than asking the LLM to rate itself)
-        confidence = _score_confidence(context)
+        confidence = compute_confidence(context)
 
         return {
             "answer": answer,
@@ -80,27 +80,5 @@ Provide a clear, accurate answer based on the excerpts above."""
         }
 
 
-def _score_confidence(context: list[dict]) -> float:
-    """
-    Compute answer confidence deterministically from retrieval scores.
-    
-    Thresholds calibrated for cosine similarity scores from sentence-transformers:
-    - High  (≥ 0.72): Top result is strongly relevant — context clearly covers the question
-    - Medium(≥ 0.52): Partial or indirect relevance
-    - Low   (< 0.52): Weak retrieval — answer may be unreliable
-    """
-    if not context:
-        return 0.0
-
-    top_score = max((item.get("final_score", 0) for item in context), default=0.0)
-
-    if top_score >= 0.72:
-        return round(0.85 + min(0.14, (top_score - 0.72) * 0.5), 3)   # 0.85–0.99
-    elif top_score >= 0.52:
-        # Scale 0.52–0.72 → 0.60–0.84
-        scaled = 0.60 + (top_score - 0.52) / 0.20 * 0.24
-        return round(min(0.84, scaled), 3)
-    else:
-        # Scale 0–0.52 → 0.10–0.59
-        scaled = 0.10 + top_score / 0.52 * 0.49
-        return round(min(0.59, scaled), 3)
+# Backwards-compatible alias; the implementation lives in base.compute_confidence.
+_score_confidence = compute_confidence

@@ -55,8 +55,12 @@ class Settings(BaseSettings):
     GRAPH_HOP_LIMIT: int = 3
     GRAPH_MAX_LIMIT: int = 20
     RETRIEVAL_CONFIDENCE_THRESHOLD: float = 0.70
-    RERANKER_VECTOR_WEIGHT: float = 0.6
-    RERANKER_GRAPH_WEIGHT: float = 0.4
+    # Reciprocal Rank Fusion constant for merging vector + graph rankings.
+    RRF_K: int = 60
+    # Answer confidence bands on the top raw cosine similarity. These are
+    # heuristics, NOT calibrated against labelled data (see EVAL_RESULTS.md).
+    CONFIDENCE_HIGH_SIM: float = 0.72
+    CONFIDENCE_MEDIUM_SIM: float = 0.52
 
     # Guardrails
     AUDIT_DIR: str = "./data"
