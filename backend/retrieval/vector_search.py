@@ -49,11 +49,11 @@ async def vector_search(query: str, top_k: int = None) -> list[dict]:
             "metadata": results["metadatas"][0][i],
         })
 
-    # Section 2: Filter injection-flagged chunks from synthesis context.
-    # Only exclude flagged chunks if clean alternatives exist — never return
-    # empty results when flagged chunks are the only ones available.
-    clean_hits = [h for h in hits if not h.get("metadata", {}).get("injection_flagged")]
-    return clean_hits if clean_hits else hits
+    # Section 2: return only chunks the ingestion scanner explicitly cleared.
+    # Flagged chunks are never returned, even when nothing else matches, and
+    # chunks with no scan metadata (ingested before the scanner existed) are
+    # treated as untrusted. An empty result makes the supervisor abstain.
+    return [h for h in hits if h.get("metadata", {}).get("injection_flagged") is False]
 
 
 def needs_graph_fallback(vector_hits: list[dict]) -> bool:

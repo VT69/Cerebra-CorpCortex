@@ -71,6 +71,13 @@ SMALL_TALK_REPLY = (
     "or safety regulations (OSHA, OISD, etc.)."
 )
 
+# Returned when retrieval finds no trusted context. No agent is called, so the
+# model cannot fall back to answering from its own memory.
+ABSTAIN_ANSWER = (
+    "I don't have enough trusted information in the knowledge base to answer this. "
+    "No document passed the safety checks for this question."
+)
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Citation deduplication (Section 3)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -215,6 +222,22 @@ async def retrieve_node(state: SupervisorState) -> SupervisorState:
         "graph_hits": g_hits,
         "reranked_context": reranked,
         "retrieval_strategy": strategy,
+    }
+
+
+async def abstain_node(state: SupervisorState) -> SupervisorState:
+    """No trusted context was retrieved: answer with an explicit abstention."""
+    return {
+        **state,
+        "final_answer": ABSTAIN_ANSWER,
+        "supporting_detail": "",
+        "citation_note": "",
+        "citations": [],
+        "confidence": 0.0,
+        "confidence_label": "Low",
+        "retrieval_path": "none",
+        "graph_path": [],
+        "agents_used": [],
     }
 
 
@@ -449,6 +472,7 @@ def build_supervisor() -> StateGraph:
     graph.add_node("dispatch", dispatch_specialists_node)
     graph.add_node("synthesize", synthesize_node)
     graph.add_node("guardrails", groundedness_check_node)  # Section 1 + 3
+    graph.add_node("abstain", abstain_node)
 
     graph.set_entry_point("classify")
 
@@ -457,8 +481,14 @@ def build_supervisor() -> StateGraph:
             return END
         return "retrieve"
 
+    def route_after_retrieve(state: SupervisorState):
+        # Abstain when nothing trusted was retrieved, instead of letting agents
+        # answer from model memory.
+        return "dispatch" if state["reranked_context"] else "abstain"
+
     graph.add_conditional_edges("classify", route_after_classify)
-    graph.add_edge("retrieve", "dispatch")
+    graph.add_conditional_edges("retrieve", route_after_retrieve)
+    graph.add_edge("abstain", END)
     graph.add_edge("dispatch", "synthesize")
     graph.add_edge("synthesize", "guardrails")  # guardrails wraps synthesis
     graph.add_edge("guardrails", END)
