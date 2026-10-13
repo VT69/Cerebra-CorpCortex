@@ -13,6 +13,7 @@ import threading
 from datetime import datetime, timezone
 
 from backend.config import settings
+from backend.guardrails.pii import redact_obj
 
 logger = logging.getLogger(__name__)
 
@@ -25,9 +26,11 @@ def _resolve_path(filename: str) -> str:
 
 
 def _append(path: str, record: dict) -> None:
-    """Append a single timestamped JSON record to a JSONL file. Never raises."""
+    """Append a single timestamped JSON record to a JSONL file. Never raises.
+    Every string field is PII-redacted before it is written."""
     try:
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        record = redact_obj(record)
         record["_logged_at"] = datetime.now(timezone.utc).isoformat()
         line = json.dumps(record, default=str) + "\n"
         with _write_lock:

@@ -13,6 +13,7 @@ from backend.api.security import WriteAccess, write_limiter
 from backend.agents.supervisor import run_query
 from backend.ingestion.pipeline import ingest_document, load_fingerprint_cache, save_fingerprint_cache
 from backend.shared.ontology import AgentResponse
+from backend.guardrails.pii import redact_pii, redact_obj
 from dataclasses import asdict
 import shutil
 
@@ -110,11 +111,12 @@ async def query(request: QueryRequest):
 
     try:
         response = await run_query(request.question)
+        # PII redaction on everything user-facing (citations are redacted at source).
         return QueryResponse(
-            answer=response.answer,
-            supporting_detail=getattr(response, 'supporting_detail', ''),
-            citation_note=getattr(response, 'citation_note', ''),
-            citations=response.citations,
+            answer=redact_pii(response.answer),
+            supporting_detail=redact_pii(getattr(response, 'supporting_detail', '')),
+            citation_note=redact_pii(getattr(response, 'citation_note', '')),
+            citations=redact_obj(response.citations),
             confidence=response.confidence,
             confidence_label=getattr(response, 'confidence_label', 'Low'),
             retrieval_path=getattr(response, 'retrieval_path', 'vector'),
@@ -123,7 +125,7 @@ async def query(request: QueryRequest):
             agent_used=response.agent_used,
             retrieval_strategy=response.retrieval_strategy,
             latency_ms=response.latency_ms,
-            groundedness_warning=getattr(response, 'groundedness_warning', []),
+            groundedness_warning=redact_obj(getattr(response, 'groundedness_warning', [])),
             escalation_notice=getattr(response, 'escalation_notice', ''),
         )
     except Exception as e:

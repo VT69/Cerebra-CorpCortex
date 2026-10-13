@@ -31,3 +31,9 @@ def test_plain_markdown_link():
 @pytest.mark.parametrize("probe", [probes.SPLIT_A, probes.SPLIT_B], ids=["split-a", "split-b"])
 def test_split_instruction(probe):
     assert scan_text_for_injection(probe)["flagged"]
+
+
+@pytest.mark.xfail(strict=True, reason="names need NER (e.g. Presidio/spaCy); regex cannot find them")
+def test_person_names_are_redacted():
+    from backend.guardrails.pii import redact_pii
+    assert "Rajesh Sharma" not in redact_pii("Reported By: Rajesh Sharma, Shift In-Charge")
