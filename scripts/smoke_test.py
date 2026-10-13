@@ -6,6 +6,7 @@ scripts/fake_openai.py. Neo4j is not required (graph search degrades to []).
 Usage: python -m scripts.smoke_test
 """
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -30,11 +31,13 @@ def _wait(url):
 
 def main() -> int:
     tmp = tempfile.mkdtemp(prefix="cerebra-smoke-")
+    # Work on a copy of the committed store so the smoke run never modifies data/.
+    shutil.copytree("data/chroma", f"{tmp}/chroma")
     env = {**os.environ, "OPENAI_API_KEY": "sk-smoke", "OPENAI_BASE_URL": f"{FAKE}/v1",
            "INGEST_API_KEY": INGEST_KEY, "REVIEWER_API_KEY": REVIEWER_KEY,
            "CHECKPOINT_DB_PATH": f"{tmp}/checkpoints.sqlite", "AUDIT_DIR": tmp,
            "DOC_UPLOAD_DIR": f"{tmp}/uploads", "DOC_FINGERPRINT_CACHE": f"{tmp}/fp.json",
-           "NEO4J_URI": "bolt://127.0.0.1:1"}
+           "CHROMA_PERSIST_DIR": f"{tmp}/chroma", "NEO4J_URI": "bolt://127.0.0.1:1"}
     procs = [subprocess.Popen([sys.executable, "-m", "uvicorn", "scripts.fake_openai:app", "--port", "8811"],
                               env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)]
     _wait(f"{FAKE}/docs")
@@ -80,9 +83,7 @@ def main() -> int:
     finally:
         for p in procs:
             p.terminate()
-        # The ingest above wrote to the real store; restore it.
-        subprocess.run(["git", "checkout", "--", "data/chroma", "data/fingerprints.json"], check=False)
-        subprocess.run(["git", "clean", "-fdq", "data/chroma"], check=False)
+        shutil.rmtree(tmp, ignore_errors=True)
 
     print(f"\n{sum(results)}/{len(results)} smoke checks passed")
     return 0 if all(results) else 1
