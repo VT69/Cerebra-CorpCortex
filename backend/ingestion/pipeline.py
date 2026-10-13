@@ -105,6 +105,7 @@ async def ingest_document(
     # 3. Embed and store in ChromaDB with injection scanning (Section 2)
     collection = get_chroma_collection()
     chunk_ids = []
+    clean_chunks = []  # chunks with no injection signal at all — the only text the graph may see
     injection_blocked = 0
     for i, chunk in enumerate(chunks):
         chunk_id = f"{doc_id}_chunk_{i}"
@@ -154,6 +155,8 @@ async def ingest_document(
             metadatas=[chunk_metadata],
         )
         chunk_ids.append(chunk_id)
+        if not scan_result["flagged"]:
+            clean_chunks.append(chunk)
 
     if injection_blocked:
         console.print(f"  [red]✗ {injection_blocked} chunk(s) blocked as injection attempts[/red]")
@@ -161,10 +164,16 @@ async def ingest_document(
     console.print(f"  → {len(chunk_ids)} chunks stored in ChromaDB")
 
     # 4. Two-pass extraction → Neo4j
+    # Only scanned, fully clean chunks reach the graph extractor. Blocked chunks
+    # and regex-flagged (even if LLM-cleared) chunks are excluded: a bad fact in
+    # the graph is permanent and is reused across every future query.
     extractor = TwoPassExtractor()
-    # Extract from full text (not individual chunks) for better context
-    full_text = parsed["text"][:12000]  # Limit for LLM context
-    extracted = await extractor.extract(full_text, doc_id, doc_type)
+    full_text = "\n\n".join(clean_chunks)[:12000]  # Limit for LLM context
+    if full_text.strip():
+        extracted = await extractor.extract(full_text, doc_id, doc_type)
+    else:
+        console.print("  [yellow]⚠ No clean text — skipping graph extraction[/yellow]")
+        extracted = {"nodes": [], "edges": []}
 
     nodes_written = 0
     edges_written = 0
