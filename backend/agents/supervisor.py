@@ -610,6 +610,7 @@ def _response_from_state(state: dict, latency_ms: int, status: str, review_id: s
         escalation_notice=state.get("escalation_notice", ""),
         status=status,
         review_id=review_id,
+        retrieved_contexts=[c.get("text", "") for c in state.get("reranked_context", [])],
     )
 
 

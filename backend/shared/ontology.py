@@ -78,6 +78,8 @@ class AgentResponse:
     # Human-in-the-loop (fix 6)
     status: str = "answered"            # "answered" | "abstained" | "pending_review" | "approved" | "edited" | "rejected"
     review_id: str = ""                 # set when the answer is held for human review
+    # Full text of the trusted context the agents saw (for evaluation; not returned by the API)
+    retrieved_contexts: list = field(default_factory=list)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Document Types (for routing ingestion to the right parser)

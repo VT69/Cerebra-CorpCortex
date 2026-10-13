@@ -34,33 +34,10 @@ from backend.config import settings
 # In production, replace with your real industrial benchmark
 # ─────────────────────────────────────────────────────────────────────────────
 
-BENCHMARK_QUESTIONS = [
-    {
-        "question": "What is the design pressure of vessel V-201?",
-        "ground_truth": "The design pressure of V-201 is 15 bar(g) as per the equipment datasheet.",
-        "type": "single-fact",
-    },
-    {
-        "question": "What maintenance was performed on pump P-101 after its last failure?",
-        "ground_truth": "Work order WO-2024-0312 records impeller replacement and seal renewal on P-101 following the March 2024 bearing failure.",
-        "type": "multi-hop",
-    },
-    {
-        "question": "Which equipment in the process area is non-compliant with OISD-118?",
-        "ground_truth": "Vessel V-301 pressure relief valve PV-301A is overdue for calibration per OISD-118 Clause 4.2.3.",
-        "type": "aggregation",
-    },
-    {
-        "question": "What is the operating temperature range for compressor K-101?",
-        "ground_truth": "K-101 operates between 35°C (suction) and 145°C (discharge) at design conditions.",
-        "type": "single-fact",
-    },
-    {
-        "question": "Have there been recurring seal failures on any centrifugal pumps?",
-        "ground_truth": "P-101 and P-203 both show mechanical seal failures every 8-10 months, correlated with high-vibration periods.",
-        "type": "multi-hop",
-    },
-]
+# Ground truths now come from the corpus (backend/eval/benchmark.py). The
+# previous set referenced equipment that is not in any document (K-101,
+# P-203, V-301/OISD-118), so its scores could not mean anything.
+from backend.eval.benchmark import BENCHMARK as BENCHMARK_QUESTIONS
 
 
 async def _run_benchmark_query(question: str) -> dict:
@@ -70,7 +47,9 @@ async def _run_benchmark_query(question: str) -> dict:
     latency = int((time.time() - start) * 1000)
     return {
         "answer": response.answer,
-        "contexts": [c.get("text_span", "") for c in response.citations],
+        # The full chunks the agents actually saw — not the 200-char,
+        # PII-redacted citation snippets used previously.
+        "contexts": response.retrieved_contexts,
         "latency_ms": latency,
         "confidence": response.confidence,
         "query_type": response.query_type,
