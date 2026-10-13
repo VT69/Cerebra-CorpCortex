@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from backend.config import settings
+from backend.api.security import WriteAccess, write_limiter
 from backend.agents.supervisor import run_query
 from backend.ingestion.pipeline import ingest_document, load_fingerprint_cache, save_fingerprint_cache
 from backend.shared.ontology import AgentResponse
@@ -129,7 +130,7 @@ async def query(request: QueryRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/ingest", response_model=IngestResponse)
+@app.post("/ingest", response_model=IngestResponse, dependencies=[WriteAccess])
 async def ingest(
     file: UploadFile = File(...),
     doc_type: str = Form("generic"),
@@ -138,8 +139,12 @@ async def ingest(
     Upload and ingest a document into the knowledge base.
     Supported: PDF, DOCX, XLSX, CSV, TXT, PNG/JPG (P&IDs), EML
     """
-    # Save uploaded file
-    upload_path = os.path.join(settings.DOC_UPLOAD_DIR, file.filename)
+    # Save uploaded file. Keep only the basename so a crafted multipart
+    # filename like "../../x" cannot write outside the upload directory.
+    safe_name = os.path.basename((file.filename or "").replace("\\", "/")).strip()
+    if not safe_name or safe_name.startswith("."):
+        raise HTTPException(status_code=400, detail="Invalid file name")
+    upload_path = os.path.join(settings.DOC_UPLOAD_DIR, safe_name)
     with open(upload_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
 
@@ -162,7 +167,7 @@ async def ingest(
         )
 
 
-@app.post("/webhook/qms/incident")
+@app.post("/webhook/qms/incident", dependencies=[WriteAccess])
 async def qms_webhook(payload: QMSIncidentPayload):
     """
     Direct QMS/ERP Webhook Integration.
@@ -244,7 +249,7 @@ async def get_eval_report():
         return json.load(f)
 
 
-@app.post("/eval/run")
+@app.post("/eval/run", dependencies=[WriteAccess])
 async def trigger_eval():
     """Trigger the eval pipeline manually."""
     from backend.eval.eval_pipeline import run_eval

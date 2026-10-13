@@ -2,6 +2,10 @@
 // Kavyansh: import these functions in your components
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// LOCAL DEMO ONLY: a NEXT_PUBLIC_ value is shipped to the browser, so it is not
+// a secret. In production, uploads must go through an authenticated backend
+// (user session -> server-side key), never a key embedded in the frontend.
+const INGEST_API_KEY = process.env.NEXT_PUBLIC_INGEST_API_KEY || "";
 
 export interface Citation {
   doc_id: string;
@@ -93,6 +97,7 @@ export async function ingestDocument(
 
   const res = await fetch(`${API_URL}/ingest`, {
     method: "POST",
+    headers: INGEST_API_KEY ? { "X-API-Key": INGEST_API_KEY } : undefined,
     body: form,
   });
   if (!res.ok) throw new Error(`Ingest failed: ${res.statusText}`);

@@ -44,6 +44,11 @@ class Settings(BaseSettings):
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001"
+    # Write endpoints (/ingest, /webhook/qms/incident, /eval/run) require this
+    # key via "Authorization: Bearer <key>" or "X-API-Key: <key>". If unset,
+    # writes are refused (fail closed).
+    INGEST_API_KEY: Optional[str] = None
+    RATE_LIMIT_WRITES_PER_MIN: int = 10
 
     # Retrieval tuning
     VECTOR_TOP_K: int = 10

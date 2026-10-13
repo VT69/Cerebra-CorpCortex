@@ -3,7 +3,8 @@ import requests
 import tempfile
 import time
 
-API_URL = "https://industrialiq-api.onrender.com"
+API_URL = os.environ.get("API_URL", "https://industrialiq-api.onrender.com")
+INGEST_API_KEY = os.environ.get("INGEST_API_KEY", "")
 
 DOCUMENTS = [
     {
@@ -133,7 +134,8 @@ def seed_data():
             files = {"file": (doc["filename"], f, "text/plain")}
             data = {"doc_type": "generic"}
             try:
-                res = requests.post(f"{API_URL}/ingest", files=files, data=data, timeout=120)
+                res = requests.post(f"{API_URL}/ingest", files=files, data=data,
+                                    headers={"X-API-Key": INGEST_API_KEY}, timeout=120)
                 if res.status_code == 200:
                     resp_data = res.json()
                     if resp_data.get("status") == "skipped":
