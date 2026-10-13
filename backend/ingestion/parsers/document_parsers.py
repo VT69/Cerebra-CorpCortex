@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 import re
+import threading
 from pathlib import Path
 from typing import Optional
 
@@ -58,10 +59,25 @@ def load_fingerprint_cache(cache_path: str) -> dict:
     return {}
 
 
+_cache_lock = threading.Lock()
+
+
 def save_fingerprint_cache(cache: dict, cache_path: str):
+    """Atomic write: a crash mid-write can no longer leave a truncated/empty cache."""
     os.makedirs(os.path.dirname(cache_path) or ".", exist_ok=True)
-    with open(cache_path, "w") as f:
+    tmp = f"{cache_path}.tmp"
+    with open(tmp, "w") as f:
         json.dump(cache, f, indent=2)
+    os.replace(tmp, cache_path)
+
+
+def record_fingerprint(cache_path: str, fp: str, entry: dict) -> None:
+    """Persist one fingerprint immediately, merging with what is on disk so
+    concurrent ingests don't overwrite each other's entries."""
+    with _cache_lock:
+        cache = load_fingerprint_cache(cache_path)
+        cache[fp] = entry
+        save_fingerprint_cache(cache, cache_path)
 
 
 # -----------------------------------------------------------------------------

@@ -61,6 +61,9 @@ class Settings(BaseSettings):
     VECTOR_TOP_K: int = 10
     GRAPH_HOP_LIMIT: int = 3
     GRAPH_MAX_LIMIT: int = 20
+    # Near-duplicate chunk threshold (MinHash estimated Jaccard of word 3-shingles).
+    # Measured on the corpus: distinct chunks max 0.61; 3-word-edited copies median 0.88.
+    NEAR_DUP_JACCARD: float = 0.7
     RETRIEVAL_CONFIDENCE_THRESHOLD: float = 0.70
     # Reciprocal Rank Fusion constant for merging vector + graph rankings.
     RRF_K: int = 60

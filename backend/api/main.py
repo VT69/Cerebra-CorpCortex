@@ -241,8 +241,7 @@ async def ingest(
 
     # Run ingestion
     fp_cache = load_fingerprint_cache(settings.DOC_FINGERPRINT_CACHE)
-    result = await ingest_document(upload_path, doc_type, fp_cache)
-    save_fingerprint_cache(fp_cache, settings.DOC_FINGERPRINT_CACHE)
+    result = await ingest_document(upload_path, doc_type, fp_cache)  # persists its own fingerprint
 
     if result["status"] == "skipped":
         return IngestResponse(status="skipped", message="Document already in knowledge base")

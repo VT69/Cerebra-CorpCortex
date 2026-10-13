@@ -12,7 +12,7 @@ What it does (idempotent):
   2. runs the current injection scanner (normalised regex) on every kept chunk.
      Offline there is no LLM second pass, so ANY regex hit is marked
      injection_flagged=True (conservative: never returned at query time)
-  3. stamps scan_version, chunk_sha256, file_sha256 and simhash metadata
+  3. stamps scan_version, chunk_sha256, file_sha256 and minhash metadata
   4. rebuilds the fingerprint cache from source files found on disk
   5. compacts the collection (re-creates it from its own embeddings) after
      deletions, because deleted HNSW entries otherwise still consume top-k slots
@@ -37,10 +37,7 @@ from backend.ingestion.parsers.document_parsers import (
     save_fingerprint_cache,
 )
 
-try:  # added by the near-duplicate fix; optional so this script works either way
-    from backend.ingestion.dedup import simhash
-except ImportError:  # pragma: no cover
-    simhash = None
+from backend.ingestion import dedup
 
 SOURCE_DIRS = ["./sample_docs", settings.DOC_UPLOAD_DIR]
 
@@ -105,8 +102,7 @@ def rescan(persist_dir: str, apply: bool) -> dict:
         meta["chunk_sha256"] = hashlib.sha256(text.encode()).hexdigest()
         if meta.get("file_name") in file_sha:
             meta["file_sha256"] = file_sha[meta["file_name"]]
-        if simhash:
-            meta["simhash"] = format(simhash(text), "016x")
+        meta["minhash"] = dedup.encode(dedup.minhash(text))
         flagged += meta["injection_flagged"]
         update_ids.append(data["ids"][i])
         update_metas.append(meta)

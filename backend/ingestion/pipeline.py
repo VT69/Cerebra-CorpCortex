@@ -32,10 +32,12 @@ from backend.ingestion.parsers.document_parsers import (
     fingerprint_file,
     load_fingerprint_cache,
     save_fingerprint_cache,
+    record_fingerprint,
     parse_document,
 )
+from backend.ingestion import dedup
 from backend.shared.ontology import DOC_TYPES
-from backend.guardrails.injection_scanner import scan_chunk
+from backend.guardrails.injection_scanner import scan_chunk, PATTERN_VERSION
 from backend.guardrails.audit_log import log_injection_attempt, log_injection_flagged
 
 app = typer.Typer()
@@ -77,10 +79,13 @@ async def ingest_document(
     Returns summary of what was written.
     """
     fingerprint_cache = fingerprint_cache or {}
+    collection = get_chroma_collection()
 
-    # 1. Fingerprint check
+    # 1. Fingerprint check — the vector store is the source of truth (each chunk
+    # carries file_sha256), so a lost/reset cache can't cause re-ingestion.
     fp = fingerprint_file(file_path)
-    if fp in fingerprint_cache:
+    already_stored = bool(collection.get(where={"file_sha256": fp}, limit=1)["ids"])
+    if fp in fingerprint_cache or already_stored:
         console.print(f"[yellow]⏭  Skipping (already processed):[/yellow] {Path(file_path).name}")
         return {"status": "skipped", "reason": "already_processed"}
 
@@ -103,7 +108,13 @@ async def ingest_document(
     console.print(f"  → {len(chunks)} chunks extracted")
 
     # 3. Embed and store in ChromaDB with injection scanning (Section 2)
-    collection = get_chroma_collection()
+    #    and near-duplicate filtering (MinHash against every stored chunk).
+    existing_sigs = [
+        dedup.decode(m["minhash"])
+        for m in collection.get(include=["metadatas"])["metadatas"]
+        if m and m.get("minhash")
+    ]
+    near_duplicates = 0
     chunk_ids = []
     clean_chunks = []  # chunks with no injection signal at all — the only text the graph may see
     injection_blocked = 0
@@ -127,6 +138,13 @@ async def ingest_document(
             injection_blocked += 1
             continue  # Skip embedding this chunk
 
+        # Near-duplicate of a chunk already stored (or earlier in this doc)?
+        signature = dedup.minhash(chunk)
+        if dedup.is_near_duplicate(signature, existing_sigs, settings.NEAR_DUP_JACCARD):
+            near_duplicates += 1
+            continue
+        existing_sigs.append(signature)
+
         # Build metadata — flag regex-matched (but LLM-cleared) chunks
         chunk_metadata = {
             "doc_id": doc_id,
@@ -135,6 +153,9 @@ async def ingest_document(
             "chunk_index": i,
             "total_chunks": len(chunks),
             "injection_flagged": scan_result["flagged"],
+            "scan_version": PATTERN_VERSION,
+            "file_sha256": fp,
+            "minhash": dedup.encode(signature),
         }
 
         if scan_result["flagged"] and not scan_result["is_injection"]:
@@ -160,6 +181,8 @@ async def ingest_document(
 
     if injection_blocked:
         console.print(f"  [red]✗ {injection_blocked} chunk(s) blocked as injection attempts[/red]")
+    if near_duplicates:
+        console.print(f"  [yellow]⏭ {near_duplicates} near-duplicate chunk(s) skipped[/yellow]")
 
     console.print(f"  → {len(chunk_ids)} chunks stored in ChromaDB")
 
@@ -231,17 +254,17 @@ async def ingest_document(
 
     console.print(f"  → [green]{nodes_written} nodes[/green], [green]{edges_written} edges[/green] written to graph")
 
-    # 5. Update fingerprint cache
-    fingerprint_cache[fp] = {
-        "doc_id": doc_id,
-        "file_path": file_path,
-        "ingested_at": extractor.extracted_at,
-    }
+    # 5. Update fingerprint cache — in memory and on disk immediately (atomic, merged)
+    entry = {"doc_id": doc_id, "file_path": file_path, "ingested_at": extractor.extracted_at}
+    fingerprint_cache[fp] = entry
+    record_fingerprint(settings.DOC_FINGERPRINT_CACHE, fp, entry)
 
     return {
         "status": "success",
         "doc_id": doc_id,
         "chunks": len(chunks),
+        "chunks_stored": len(chunk_ids),
+        "near_duplicates": near_duplicates,
         "nodes": nodes_written,
         "edges": edges_written,
     }
@@ -295,8 +318,7 @@ def run(
     for fp, dt in files_to_process:
         result = asyncio.run(ingest_document(fp, dt, fingerprint_cache))
         results.append(result)
-
-    save_fingerprint_cache(fingerprint_cache, cache_path)
+    # (fingerprints are persisted per document inside ingest_document)
 
     # Summary
     success = sum(1 for r in results if r["status"] == "success")
