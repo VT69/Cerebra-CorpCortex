@@ -65,6 +65,17 @@ class SlidingWindowLimiter:
 
 
 write_limiter = SlidingWindowLimiter()
+query_limiter = SlidingWindowLimiter()
+
+
+async def limit_queries(request: Request) -> None:
+    """Per-IP limit on /query. Every held high-stakes answer costs reviewer
+    time, so unauthenticated callers must not be able to queue unlimited work."""
+    ip = request.client.host if request.client else "unknown"
+    query_limiter.check(ip, settings.RATE_LIMIT_QUERIES_PER_MIN)
+
+
+QueryLimit = Depends(limit_queries)
 
 
 def _caller_id(request: Request, key: str) -> str:

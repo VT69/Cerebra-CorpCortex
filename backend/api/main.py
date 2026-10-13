@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from backend.config import settings
-from backend.api.security import WriteAccess, write_limiter, check_api_key
+from backend.api.security import WriteAccess, QueryLimit, write_limiter, query_limiter, check_api_key
 from backend.agents.supervisor import (
     run_query, submit_review, get_review_state, ReviewNotFound, ReviewAlreadyDecided,
     close_supervisor,
@@ -116,7 +116,7 @@ async def health():
     return {"status": "ok", "service": "IndustrialIQ API"}
 
 
-@app.post("/query", response_model=QueryResponse)
+@app.post("/query", response_model=QueryResponse, dependencies=[QueryLimit])
 async def query(request: QueryRequest):
     """
     Main query endpoint — runs the full supervisor pipeline.

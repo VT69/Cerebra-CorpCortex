@@ -16,6 +16,11 @@ import pytest
 from fastapi.testclient import TestClient
 
 import backend.api.main as main
+
+
+@__import__('pytest').fixture(autouse=True)
+def _reset_query_limiter():
+    main.query_limiter.reset()
 from backend.config import settings
 from backend.guardrails.audit_log import log_high_stakes_query, log_injection_attempt
 from backend.guardrails.pii import redact_pii

@@ -14,6 +14,11 @@ from fastapi.testclient import TestClient
 
 import backend.agents.supervisor as sup
 import backend.api.main as main
+
+
+@__import__('pytest').fixture(autouse=True)
+def _reset_query_limiter():
+    main.query_limiter.reset()
 from backend.agents.compliance import ComplianceAgent
 from backend.agents.copilot import CopilotAgent
 from backend.agents.lessons_learned import LessonsLearnedAgent

@@ -49,6 +49,8 @@ class Settings(BaseSettings):
     # writes are refused (fail closed).
     INGEST_API_KEY: Optional[str] = None
     RATE_LIMIT_WRITES_PER_MIN: int = 10
+    # /query is unauthenticated; this bounds per-client load and review-queue flooding.
+    RATE_LIMIT_QUERIES_PER_MIN: int = 30
 
     # Human-in-the-loop review of high-stakes answers
     REVIEWER_API_KEY: Optional[str] = None     # required for /review/* (fail closed)
