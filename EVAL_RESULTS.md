@@ -1,6 +1,6 @@
 # Cerebra — Evaluation Results
 
-Generated 2026-10-13 19:16 UTC at commit `c120431` by `python -m backend.eval.security_eval`. Scanner `PATTERN_VERSION 2.1`.
+Generated 2026-10-13 19:25 UTC at commit `d469bcd` by `python -m backend.eval.security_eval`. Scanner `PATTERN_VERSION 2.1`.
 
 **Baseline** = the original code at commit `02c3e90` (patterns copied verbatim into the eval). **Now** = this commit. Same probe sets for both (`backend/eval/probes.py`).
 
@@ -66,10 +66,10 @@ Names, employee IDs, dates of birth and bank details need NER / custom recognise
 
 | Step | p50 ms | p95 ms |
 |---|---|---|
-| Injection scan (normalise + base64 + 19 regexes) | 0.231 | 0.323 |
-| MinHash signature (64 perms) | 1.485 | 2.209 |
-| PII redaction | 0.062 | 0.091 |
-| Cypher validation | 0.012 | 0.018 |
+| Injection scan (normalise + base64 + 19 regexes) | 0.250 | 0.442 |
+| MinHash signature (64 perms) | 1.484 | 2.443 |
+| PII redaction | 0.077 | 0.125 |
+| Cypher validation | 0.012 | 0.017 |
 
 These are the non-LLM trust layers. The LLM calls (injection classifier on regex hits, groundedness verifier per answer) dominate real latency and are measured only in the online run.
 

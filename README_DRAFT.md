@@ -1,23 +1,26 @@
 # Cerebra-CorpCortex
 
-Cerebra answers natural-language questions over a plant's documents, such as maintenance manuals, work orders, inspection reports, SOPs, regulations and P&ID diagrams. Each answer comes with source documents, a confidence label and safety notices. Under the hood it's a LangGraph pipeline over a ChromaDB vector store and a Neo4j knowledge graph, with a guardrails layer (injection scanning, groundedness checking, high-stakes flagging, PII redaction and audit logs).
+Cerebra answers natural-language questions over a plant's documents: maintenance manuals, work orders, inspection reports, SOPs, regulations, spreadsheets and P&ID diagrams. Each answer comes with source documents and a confidence label. Safety-critical answers are **held for a human reviewer** before anyone sees them.
 
-> Status: research prototype. Read **Limitations** before relying on any of the trust features.
+Under the hood it's a LangGraph pipeline over a ChromaDB vector store and a Neo4j knowledge graph. Trust layers sit at both ingestion and query time.
+
+> Status: research prototype, hardened on branch `fix/security-hardening`. Read **Limitations** before relying on any trust feature. Measured numbers are in [`EVAL_RESULTS.md`](EVAL_RESULTS.md).
 
 ---
 
 ## What it does
 
-- **Ingests** PDF, DOCX, XLSX, TXT/EML, and image files (P&IDs), via a CLI or `POST /ingest`.
-- **Builds two indexes:** text chunks embedded in ChromaDB, plus entities and relationships extracted into Neo4j with per-edge provenance.
-- **Answers** questions via `POST /query` with:
-  - the answer text;
-  - a confidence score and High/Medium/Low label;
+- **Ingests** PDF, DOCX, XLSX, CSV, TXT/EML and image files (P&IDs), through the CLI or `POST /ingest` (API key required).
+- **Builds two indexes from trusted text only.** Embedded chunks go into ChromaDB. Entities and relationships go into Neo4j, extracted only from chunks that passed the injection scan.
+- **Answers** questions via `POST /query`. A response carries:
+  - the answer;
+  - a status (`answered` / `abstained` / `pending_review`);
+  - confidence and its label;
   - up to 8 source-document cards;
-  - the graph path (when the graph was used);
-  - a groundedness warning;
-  - a safety escalation notice.
-- **Frontend:** Next.js chat UI in `frontend/`.
+  - the graph path;
+  - groundedness warnings.
+- **Holds high-stakes answers** (LOTO, confined space, hot work, …) for a reviewer, who approves, edits or rejects them through `/review/*`. The user polls `GET /answer/{review_id}`.
+- **Frontend:** Next.js chat UI in `frontend/`. Held answers show "pending review" and update when a reviewer decides.
 
 ---
 
@@ -27,24 +30,24 @@ Cerebra answers natural-language questions over a plant's documents, such as mai
 
 ```mermaid
 flowchart TD
-    A[File upload<br/>POST /ingest or CLI] --> B{SHA-256 of whole file<br/>in fingerprints.json?}
+    A[File upload<br/>POST /ingest + API key, or CLI] --> B{SHA-256 of file already in<br/>vector store or fingerprint cache?}
     B -- yes --> SKIP[skip]
-    B -- no --> C{Parser by extension / doc_type}
-    C -- PDF --> P1[pdfplumber<br/>Tesseract on pages &lt;50 chars]
-    C -- XLSX --> P2[openpyxl rows → text]
-    C -- DOCX --> P3[python-docx]
-    C -- TXT/EML --> P4[plain text]
-    C -- PNG/JPG/TIF/BMP or pid --> P5[OpenCV clean-up → Tesseract OCR<br/>+ GPT-4o vision: tags & connections]
-    P1 & P2 & P3 & P4 & P5 --> D[Chunking per doc_type<br/>sections / WO blocks / 800-char windows]
-    D --> E[Per-chunk injection scan<br/>19 regexes → LLM classifier on hits]
-    E -- confirmed injection --> LOG1[(injection_audit.jsonl)] --> DROP[chunk dropped]
-    E -- clean / flagged-but-cleared --> F[OpenAI text-embedding-3-small]
-    F --> G[(ChromaDB<br/>cosine, metadata incl. injection_flagged)]
-    C --> H[Two-pass LLM extraction<br/>first 12,000 chars of raw text]
-    H --> I[(Neo4j<br/>6 node types, 8 edge types,<br/>provenance on edges, AuditLog nodes)]
+    B -- no --> C{Parser}
+    C -- PDF --> P1[pdfplumber<br/>Tesseract on near-empty pages]
+    C -- XLSX/CSV --> P2[row groups,<br/>header repeated per chunk]
+    C -- DOCX / TXT --> P3[text]
+    C -- XLS --> ERR[clear error:<br/>save as .xlsx/.csv]
+    C -- PNG/JPG/TIF or pid --> P5[OpenCV → Tesseract OCR<br/>+ GPT-4o vision]
+    P1 & P2 & P3 & P5 --> D[chunks]
+    D --> E[Injection scan per chunk<br/>normalise: NFKC, strip zero-width, homoglyphs, decode base64<br/>→ 19 regexes → LLM classifier on hits]
+    E -- confirmed --> LOG1[(injection_audit.jsonl<br/>PII-redacted)] --> DROP[dropped]
+    E --> ND{MinHash near-duplicate<br/>of a stored chunk? J ≥ 0.7}
+    ND -- yes --> SKIP2[skipped]
+    ND -- no --> F[embed → ChromaDB<br/>injection_flagged, scan_version,<br/>file_sha256, minhash]
+    E -- no injection signal at all --> CLEAN[clean chunks only]
+    CLEAN --> H[Two-pass LLM extraction] --> I[(Neo4j)]
+    F --> FP[fingerprint persisted<br/>atomically]
 ```
-
-Note that graph extraction (H) reads the parsed text directly, **not** the scanned chunks. See Limitations.
 
 ### Query path
 
@@ -52,166 +55,180 @@ Note that graph extraction (H) reads the parsed text directly, **not** the scann
 flowchart TD
     Q[POST /query] --> ST{small talk?}
     ST -- yes --> R0[canned reply]
-    ST -- no --> CL[classify node<br/>LLM: single-fact / multi-hop / aggregation / off-topic<br/>+ keyword high-stakes flag]
-    CL -- off-topic --> R1[canned refusal → END]
-    CL --> RT[retrieve node<br/>Chroma top-10 · drop injection-flagged unless nothing else]
-    RT -- multi-hop/aggregation or top cosine &lt; 0.70 --> GS[LLM-generated Cypher → Neo4j]
-    RT --> RR[rerank: 0.6·cosine / 0.4·path-score<br/>one item per doc_id, top 20]
-    GS --> RR
-    RR --> DS[dispatch node<br/>copilot always + keyword-selected<br/>maintenance / compliance / lessons_learned<br/>in parallel]
-    DS --> SY[synthesize node<br/>keep highest-confidence output · merge citations]
-    SY --> GR[guardrails node<br/>LLM groundedness check → confidence cap<br/>+ escalation notice + escalation audit]
-    GR --> OUT[AgentResponse<br/>citation excerpts PII-redacted]
+    ST -- no --> CL[classify<br/>LLM type + keyword high-stakes flag]
+    CL -- off-topic --> R1[canned refusal]
+    CL --> RT[retrieve<br/>Chroma: only chunks with injection_flagged=False<br/>Neo4j: validated read-only Cypher, LIMIT ≤ 20, timeout]
+    RT -- no trusted context --> AB[abstain:<br/>'not enough trusted information']
+    RT --> RR[RRF fusion of vector + graph ranks]
+    RR --> DS[dispatch: copilot + keyword-selected specialists, parallel]
+    DS --> SY[synthesize: first matched specialist else copilot;<br/>confidence from top raw cosine]
+    SY --> GR[guardrails: LLM groundedness → confidence cap]
+    GR -- not high-stakes --> OUT[answer, PII-redacted]
+    GR -- high-stakes --> INT((interrupt_before release<br/>state saved in SQLite checkpointer))
+    INT --> PEND[user gets status=pending_review + review_id]
+    INT -. reviewer approve / edit / reject .-> REL[release] --> OUT2[GET /answer/review_id]
 ```
 
-Code map:
+### Code map
 
 | Area | Files |
 |---|---|
-| API | `backend/api/main.py` |
-| Orchestration | `backend/agents/supervisor.py` |
+| API, auth, rate limit | `backend/api/main.py`, `backend/api/security.py` |
+| Orchestration, HITL | `backend/agents/supervisor.py`, `backend/review/queue.py` |
 | Agents | `backend/agents/{base,copilot,maintenance,compliance,lessons_learned}.py` |
-| Retrieval | `backend/retrieval/{classifier,vector_search,graph_search,reranker}.py` |
-| Ingestion | `backend/ingestion/{pipeline,extractor}.py`, `backend/ingestion/parsers/document_parsers.py` |
-| Graph | `backend/graph/writer.py`, `backend/shared/ontology.py` |
+| Retrieval | `backend/retrieval/{classifier,vector_search,graph_search,cypher_guard,reranker}.py` |
+| Ingestion | `backend/ingestion/{pipeline,extractor,dedup}.py`, `backend/ingestion/parsers/document_parsers.py` |
 | Guardrails | `backend/guardrails/{injection_scanner,groundedness,severity,pii,audit_log}.py` |
-| Eval | `backend/eval/eval_pipeline.py` |
+| Eval | `backend/eval/{benchmark,probes,security_eval,eval_pipeline}.py` → `EVAL_RESULTS.md` |
+| Tools | `scripts/rescan_store.py`, `scripts/smoke_test.py`, `scripts/fake_openai.py` |
 
 ---
 
-## The four trust layers
+## Trust layers
 
-| Layer | Where it runs | How it works | What happens on a hit |
+| Layer | Where | How it works | On a hit |
 |---|---|---|---|
-| **1. Prompt-injection detection** | Ingestion, per chunk, after OCR/vision | 19 regex patterns (`PATTERN_VERSION 2.0`). Chunks that match go to a GPT-4o classifier that separates attacks from industrial phrasing such as "disregard the previous reading". At query time, all context is wrapped in `<retrieved_context>` with a "data, not instructions" preamble. | **Confirmed:** chunk not embedded, logged to `data/injection_audit.jsonl`. **Cleared:** embedded with `injection_flagged=true` and excluded at retrieval when clean alternatives exist. |
-| **2. Groundedness verification** | Query, final graph node | A second GPT-4o call (temperature 0, JSON) classifies each claim in the answer as supported, partial or unsupported against the retrieved context. | Any non-supported claim caps confidence at 0.75 (High→Medium). More than 50% unsupported caps it at 0.40 (Low). Unsupported claims are returned in `groundedness_warning`, and the UI shows an amber note. The answer is still returned. |
-| **3. High-stakes flagging** | Query: keyword check at classify, decision at the guardrails node | 20 safety keywords in the question (LOTO, confined space, hot work, gas leak, relief valve, …), combined with a Medium or Low confidence label. | `escalation_notice` → orange banner above the answer advising verification by a qualified engineer. Every high-stakes query is logged to `data/escalation_audit.jsonl`. |
-| **4. PII redaction** | Response, citation excerpts | Regex for email, phone (Indian and US formats), Aadhaar (spaced) and PAN (uppercase). | Matching text in the 200-character citation excerpt is replaced with `[REDACTED …]`. Stored data is unchanged. |
+| **Write access** | `/ingest`, `/webhook/qms/incident`, `/eval/run` | API key (`Bearer` or `X-API-Key`, constant-time compare). Fails closed if not configured. Sliding-window rate limit per key and IP. Upload names reduced to their basename. | 401 / 503 / 429 |
+| **1. Injection detection** | Ingestion, per chunk, after OCR and vision | Text is normalised first: NFKC, invisible characters (Unicode Cf) removed, Cyrillic and Greek homoglyphs mapped, base64 segments decoded two levels deep. Then 19 regexes. Regex hits go to a GPT-4o classifier, which sees the de-obfuscated text. | **Confirmed:** chunk dropped and audited. **Regex-flagged:** stored as `injection_flagged=True`, never retrieved, never sent to the graph. |
+| **Trusted retrieval** | Query | Only chunks explicitly scanned clean are returned; unscanned chunks count as untrusted. LLM-written Cypher must be a single bounded read (no CREATE, MERGE, SET, DELETE, CALL, LOAD CSV, …). It runs in a `READ_ACCESS` session with a timeout. | Nothing trusted → abstain, with no LLM answer at all |
+| **2. Groundedness** | Query, `guardrails` node | Second GPT-4o call, temperature 0, labels each claim supported, partial or unsupported against the retrieved context. | Any non-supported claim caps confidence at 0.75. More than 50% caps it at 0.40 (Low). Warning shown. |
+| **3. Human review** | Query, `release` node | A deterministic rule (safety keyword in the question; `HITL_MODE=all` or `low_confidence`) routes the run to `release`. The graph is compiled with `interrupt_before=["release"]` and an SQLite checkpointer. | Answer **withheld**. A reviewer approves, edits or rejects it through `/review/*` (separate key). Each decision is claimed once and logged with reviewer and timestamp. |
+| **4. PII redaction** | Every response, reviewer view and audit record | Regex for email, international and Indian phones (no partial leaks), Aadhaar (spaced, hyphenated or contiguous), PAN (any case). | `[REDACTED …]` |
+| **Near-duplicate filter** | Ingestion | MinHash (64 permutations, word 3-shingles); a chunk at estimated Jaccard ≥ 0.7 to a stored chunk is skipped. File SHA-256 lives in chunk metadata, so a lost cache can't cause re-ingestion. | Chunk skipped |
 
-**Audit:** the two JSONL files above, plus a Neo4j `AuditLog` node for every graph node or edge write.
+**Confidence.** It isn't the LLM's own rating. One function (`base.compute_confidence`) maps the top **raw** cosine similarity onto bands: ≥ 0.72 is High (0.85–0.99) and ≥ 0.52 is Medium. Every agent uses it, and groundedness can only lower it. The bands are heuristic and uncalibrated.
 
-**Confidence:** this isn't the LLM's own rating. For the copilot it comes from the top retrieval score. For specialists it's a fixed per-agent value. The groundedness caps above then apply.
+**Audit trail**, written to `AUDIT_DIR` and PII-redacted:
+- `injection_audit.jsonl`
+- `escalation_audit.jsonl`
+- `review_audit.jsonl`, with pending and decision events
+- Neo4j `AuditLog` nodes for graph writes
 
 ---
 
 ## How to run
 
 ### Prerequisites
-- Python 3.11+, Node 18+
-- Tesseract OCR binary (`apt install tesseract-ocr` or the UB-Mannheim build on Windows). OpenCV is optional.
-- Neo4j 5: local through `docker compose up -d neo4j`, or AuraDB
+- Python 3.11, Node 18+
+- Tesseract (`apt install tesseract-ocr`); OpenCV is optional
+- Neo4j 5, local (`docker compose up -d neo4j`) or AuraDB
 - An OpenAI API key
 
 ### Configure
 ```bash
 cp .env.example .env
-# set OPENAI_API_KEY, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD
-# on Linux/macOS, remove or fix the Windows TESSERACT_CMD line
 ```
-Retrieval and guardrail settings live in `backend/config.py`: `VECTOR_TOP_K`, `GRAPH_HOP_LIMIT`, `RETRIEVAL_CONFIDENCE_THRESHOLD`, reranker weights, and the `GROUNDEDNESS_*` caps.
+Then set these in `.env`:
+- `OPENAI_API_KEY`
+- `NEO4J_URI`, `NEO4J_USERNAME` and `NEO4J_PASSWORD`, used for ingestion writes
+- `NEO4J_READ_USERNAME` and `NEO4J_READ_PASSWORD`, used for query-time reads (see below)
+- `INGEST_API_KEY` and `REVIEWER_API_KEY`, as two **different** long random strings
+- optionally `HITL_MODE=all|low_confidence`, `RATE_LIMIT_WRITES_PER_MIN`, `NEAR_DUP_JACCARD`, `CONFIDENCE_HIGH_SIM` and `CONFIDENCE_MEDIUM_SIM`
+
+### Neo4j read-only user (recommended)
+On Neo4j Enterprise or AuraDB tiers with role-based access:
+```cypher
+CREATE USER cerebra_reader SET PASSWORD 'change-me' CHANGE NOT REQUIRED;
+GRANT ROLE reader TO cerebra_reader;
+```
+Set `NEO4J_READ_USERNAME=cerebra_reader`. Neo4j Community has no role-based access control. There, the retriever still uses a `READ_ACCESS` session plus the Cypher validator, but it authenticates as the main user.
 
 ### Backend
 ```bash
-python -m venv .venv && source .venv/bin/activate
+python3.11 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-python check_setup.py                                    # dependency + Neo4j check
-
-# ingest documents (doc type inferred from extension)
-python -m backend.ingestion.pipeline --dir ./sample_docs
-python -m backend.ingestion.pipeline --file ./sample_docs/work_order_P101_2024.txt --doc-type work_order
-
-uvicorn backend.api.main:app --reload --port 8000        # docs at http://localhost:8000/docs
+python -m backend.ingestion.pipeline --dir ./sample_docs      # ingest
+uvicorn backend.api.main:app --port 8000                     # http://localhost:8000/docs
 ```
+If an existing vector store predates the injection scanner, re-scan it with no re-embedding: `python -m scripts.rescan_store --apply`.
 
 ### Frontend
 ```bash
-cd frontend && npm install && npm run dev                # http://localhost:3000
+cd frontend && npm install && npm run dev                    # http://localhost:3000
+```
+For local uploads from the UI, set `NEXT_PUBLIC_INGEST_API_KEY`. That value ships to the browser, so it's for local demos only.
+
+### Reviewing held answers
+```bash
+curl -H "X-API-Key: $REVIEWER_API_KEY" localhost:8000/review/pending
+curl -X POST -H "X-API-Key: $REVIEWER_API_KEY" -H 'Content-Type: application/json' \
+     -d '{"decision":"approve","reviewer":"j.doe"}' localhost:8000/review/<review_id>
+# decision: approve | edit (+ "edited_answer") | reject (+ optional "note")
 ```
 
 ### Endpoints
-| Method | Path | Purpose |
-|---|---|---|
-| POST | `/query` | `{"question": "..."}` → answer, citations, confidence, guardrail fields |
-| POST | `/ingest` | multipart `file` + `doc_type` |
-| POST | `/webhook/qms/incident` | write an incident Event directly into the graph |
-| GET | `/graph/stats` | node counts by label, edge count |
-| POST / GET | `/eval/run`, `/eval/report` | run and read the Ragas eval |
-| GET | `/health` | liveness |
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| POST | `/query` | none | answer, or `pending_review` + `review_id` |
+| GET | `/answer/{review_id}` | none (unguessable uuid) | poll a held answer |
+| GET | `/review/pending` | reviewer key | held answers with draft, confidence, unsupported claims, citations |
+| POST | `/review/{review_id}` | reviewer key | approve / edit / reject |
+| POST | `/ingest` | ingest key + rate limit | upload a document |
+| POST | `/webhook/qms/incident` | ingest key + rate limit | write an incident event to the graph |
+| POST / GET | `/eval/run`, `/eval/report` | key for run | Ragas eval |
+| GET | `/graph/stats`, `/health` | none | stats, liveness |
 
-### Optional: eval
+### Tests and evaluation
 ```bash
-python -m backend.eval.eval_pipeline          # writes data/eval/latest_report.json
+pytest                                   # regression tests; LLM, Neo4j and OpenAI are mocked
+python -m scripts.smoke_test             # boots the real API against a copy of data/chroma, stub OpenAI
+python -m backend.eval.security_eval     # offline security metrics → EVAL_RESULTS.md
+python -m backend.eval.security_eval --online   # + retrieval hit rate, groundedness, latency (needs a key)
 ```
-Read the eval limitations below before quoting any number from it.
+Each fix has a test file named `tests/test_fixNN_*.py`. `tests/test_known_gaps.py` pins the documented gaps as strict xfails.
 
 ---
 
 ## Limitations
 
-This section is intentionally complete. Each item has been checked against the code.
+These are current as of `fix/security-hardening`. Each one is real and checked against the code.
 
-### Security and access
-- **No authentication or authorization** on any endpoint. `session_id` is accepted and ignored. Anyone who can reach the API can query everything, upload documents, write to the graph through `/webhook/qms/incident`, and trigger paid eval runs. The deployed config sets CORS to `*`.
-- **No retrieval-time access control.** Chroma queries have no metadata filter. The ontology defines `role_tag` but it is always `"general"` and never enforced. Graph traversal can reach any node.
-- **LLM-generated Cypher runs in a write-capable session using the configured (admin) Neo4j user.** There's no read-only mode, no query allowlist and no DB timeout. The default Neo4j password is hard-coded in `config.py` and `docker-compose.yml`, and the local compose file enables unrestricted APOC.
-- **Graph labels and edge types proposed by the LLM** are interpolated into Cypher without checking them against the ontology.
-- **Upload filenames** are used unsanitized as on-disk paths.
-- **Company data leaves the boundary to OpenAI, unredacted:** every chunk (embeddings), document text (extraction), diagram images (vision), and retrieved context on every query.
+### Access and identity
+- **Read access isn't authenticated or authorized.** `/query`, `/answer/{id}` and `/graph/stats` are open, and `session_id` is still ignored. There's no per-user identity and no retrieval-time access control. The ontology's `role_tag` is still always `"general"` and never filtered, and graph traversal isn't filtered per hop.
+- **Keys are shared, not per person.**
+  - API keys are static and shared: one ingest key, one reviewer key. The reviewer name in a decision is self-declared, not authenticated.
+  - Rate limiting is in-process: per worker, and reset on restart.
+  - `/answer/{id}` is protected only by the uuid being unguessable.
+- **The read-only Neo4j user is documented but not enforced by the code.** The fallback is the admin credentials in a `READ_ACCESS` session. The default password is still `industrialiq123` in `config.py` and `docker-compose.yml`, and APOC is unrestricted in the local compose file.
+- **Graph labels and edge types from the extraction LLM** are still interpolated into Cypher writes without an ontology allowlist (`writer.py`). Node properties are still last-writer-wins.
+- **Data still leaves the boundary.** Company data goes to OpenAI unredacted: chunks, documents, images and context. PII protection covers what leaves the backend (responses and logs), not what's sent to OpenAI or stored in Chroma or Neo4j.
 
 ### Trust layers
-- **Injection detection** only gates ChromaDB:
-  - Graph extraction reads the raw text, including blocked chunks.
-  - The regex misses obfuscation (zero-width, homoglyphs, base64, non-English), paraphrase and split instructions.
-  - The LLM classifier runs only on regex hits and fails open.
-  - Flagged chunks are returned when they are the only hits.
-  - User questions and graph text are never scanned.
-  - The committed demo vector store was built before the scanner existed.
+- **Injection detection** is still regex-first. On the audit probe set (`EVAL_RESULTS.md`), these still pass the regex:
+  - non-English text (Hindi, French);
+  - paraphrased instructions;
+  - text aimed at the groundedness verifier;
+  - plain markdown links;
+  - instructions split across chunks.
+
+  Also, the LLM classifier only sees regex hits and fails open, user questions and graph text aren't scanned, and there's no assembled-context scan at query time.
 - **Groundedness:**
-  - It judges the whole answer against pooled context; it does not verify individual citations.
-  - It's an instruction-following LLM reading untrusted text, so it can be injected.
-  - It fails open on errors, and it's skipped when retrieval returns nothing.
-  - It never blocks, retries or abstains.
-  - The UI doesn't show which claims failed.
-- **High-stakes flagging:**
-  - It's a keyword list on the question, so paraphrases bypass it.
-  - Because the label can't reach High (see Confidence), every keyword match escalates.
-  - **No human is in the loop:** no notification, queue, or LangGraph interrupt. The answer is shown immediately alongside the banner.
-- **PII redaction:**
-  - Display-only, on 200-character citation excerpts.
-  - Not applied to the answer, embeddings, graph, LLM calls or logs.
-  - Misses names, unspaced Aadhaar, lowercase PAN, employee IDs, DOB and bank details.
-  - Can leak the last digit of `+91` numbers and can redact part numbers as phones.
-- **Audit logs:**
-  - They cover injection events, high-stakes queries and graph writes only, not general queries or answers.
-  - They contain raw queries and raw chunk previews.
-  - They're not tamper-evident.
-  - On ephemeral hosting they're lost on redeploy.
+  - It judges the whole answer against pooled context; it doesn't verify claim-to-citation.
+  - It's an instruction-following LLM, so it can be injected.
+  - It fails open, and it warns rather than blocks for non-high-stakes answers.
+- **Human review:**
+  - The trigger is a keyword list on the question, so paraphrases like "isolate energy on C-202" bypass it.
+  - There's no notification (the reviewer must poll the queue), no SLA or timeout for held answers, and no queue prioritisation.
+- **PII:**
+  - Regex only. Names, employee IDs, dates of birth and bank details aren't detected (NER needed).
+  - The 12-digit Aadhaar pattern also redacts other 12-digit numbers.
 
 ### Answer quality
-- **Confidence is uncalibrated and mis-scaled.**
-  - Copilot thresholds assume raw cosine but receive `0.6 × cosine`, so the maximum is about 0.70 and "High" is unreachable for retrieved answers.
-  - Specialist agents return constants (0.80 / 0.78 / 0.75).
-- **Citations** are the top retrieved documents, not sources attributed per claim. The copilot's `citation_note` is unverified free text. Graph-sourced items appear as "Unknown Document".
+- **Confidence is uncalibrated.** The bands (0.72 / 0.52 cosine) are heuristic, and no reliability diagram or ECE exists.
+- **Citations are retrieval provenance, not per-claim attribution.**
 - **Agents:**
-  - Routing is by keyword.
-  - All agents get identical context and have no tools.
-  - Synthesis keeps only the highest-confidence output, so a specialist's answer always replaces the copilot's when one runs.
-  - Agents don't see each other's output.
-- **LangGraph usage is minimal:** a linear graph with one conditional edge. No checkpointer, interrupt or reducers. Parallelism is `asyncio.gather` inside one node.
+  - Routing is by keyword. All agents get identical context and have no tools.
+  - One answer is kept: the first specialist matched, otherwise the copilot.
+- **Reranking:** the reranker still keeps one chunk per `doc_id`. No BM25 and no cross-encoder.
 
-### Retrieval and ingestion
-- **"Hybrid" means** vector plus text-to-Cypher, fused by a weighted sum of incomparable scores. No BM25, no RRF, no cross-encoder. Dedup keeps one chunk per `doc_id`.
-- **Dedup is whole-file SHA-256 only.** Near-duplicates and re-uploads under a new hash are not caught. The committed demo store contains several files 3–4 times.
-- **Spreadsheets:** `.csv` and `.xls` fail, because openpyxl reads only `.xlsx`. Sheets get generic 800-character chunks without repeated headers.
-- **Diagrams:** vision (GPT-4o) runs only on standalone image files, with a P&ID-specific prompt. Images embedded in PDFs are ignored.
-- **Knowledge graph:**
-  - Built from only the first 12,000 characters of each document.
-  - No entity resolution beyond identical LLM-chosen IDs.
-  - Node properties are last-writer-wins, so a later upload can overwrite facts.
-  - The ontology isn't enforced at write time.
-- **No timeouts, `max_tokens` or per-user cost budgets** on LLM calls.
+### Ingestion
+- `.xls` is rejected; save it as `.xlsx` or `.csv`. Images embedded inside PDFs aren't processed. Only the first 12,000 characters of clean text go to graph extraction.
+- **Near-duplicate filter:**
+  - It catches 88% of 3-word-edited copies but only 20% of 10-word-edited ones (`EVAL_RESULTS.md`). Heavily paraphrased copies pass.
+  - The lookup is a linear scan; production would need LSH.
+- **Store re-scan:** `rescan_store.py` marks every regex hit as flagged, because no LLM second pass runs offline. The committed store had none.
 
 ### Evaluation
-- There are **no automated tests**.
-- The Ragas script has 5 questions, and **3 of their ground truths reference equipment not in the corpus**. It passes citation snippets, not retrieved contexts, to Ragas.
-- **No eval report or latency measurements** are committed. The cost of the trust layers (mainly one extra GPT-4o call per query) has not been measured.
+- Offline security metrics are measured. **Retrieval hit rate, groundedness pass rate and end-to-end latency are not measured yet**, because they need an OpenAI key (`--online`).
+- The Ragas pipeline needs `ragas` and `datasets` installed, and hasn't been re-run since the benchmark was fixed.
+- The smoke test uses a stub OpenAI server, so it proves the wiring, not answer quality.
