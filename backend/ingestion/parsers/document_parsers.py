@@ -6,6 +6,7 @@ Vaibhav owns this file. Each parser returns:
   - metadata: dict (doc-level metadata)
 """
 import base64
+import csv
 import hashlib
 import json
 import os
@@ -150,34 +151,70 @@ def parse_pdf(file_path: str, doc_type: str = "generic") -> dict:
 # Spreadsheet Parser
 # -----------------------------------------------------------------------------
 
+class UnsupportedFormatError(ValueError):
+    """Raised for formats we deliberately do not parse (reported, not crashed on)."""
+
+
+def _table_to_chunks(sheet_name: str, rows: list[list[str]], max_chars: int = 800) -> list[str]:
+    """Chunk a table by row groups, repeating the sheet name and header row in
+    every chunk so each chunk keeps its column meaning on its own."""
+    rows = [r for r in rows if any(v.strip() for v in r)]
+    if not rows:
+        return []
+    header = " | ".join(rows[0])
+    prefix = f"## Sheet: {sheet_name}\n{header}\n"
+    chunks, current = [], []
+    for row in rows[1:]:
+        line = " | ".join(row)
+        if current and len(prefix) + sum(len(l) + 1 for l in current) + len(line) > max_chars:
+            chunks.append(prefix + "\n".join(current))
+            current = []
+        current.append(line)
+    if current or not chunks:
+        chunks.append(prefix + "\n".join(current))
+    return chunks
+
+
+def _read_csv(file_path: str) -> list[list[str]]:
+    with open(file_path, newline="", encoding="utf-8-sig", errors="replace") as f:
+        sample = f.read(4096)
+        f.seek(0)
+        try:
+            dialect = csv.Sniffer().sniff(sample, delimiters=",;\t|")
+        except csv.Error:
+            dialect = csv.excel
+        return [[c.strip() for c in row] for row in csv.reader(f, dialect)]
+
+
 def parse_spreadsheet(file_path: str, doc_type: str = "spreadsheet") -> dict:
     """
-    Parse Excel/CSV treating spatial layout as meaningful.
-    Each sheet becomes a structured text block.
+    Parse .xlsx / .csv. Each sheet is chunked by row groups with the header
+    row repeated in every chunk. Legacy .xls is rejected explicitly
+    (openpyxl cannot read it; convert to .xlsx or .csv).
     """
-    wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
-    all_text = []
-    metadata = {"sheets": []}
+    ext = Path(file_path).suffix.lower()
+    if ext == ".xls":
+        raise UnsupportedFormatError("Legacy .xls is not supported; save the file as .xlsx or .csv")
 
-    for sheet_name in wb.sheetnames:
-        ws = wb[sheet_name]
-        rows = []
-        for row in ws.iter_rows(values_only=True):
-            row_vals = [str(cell) if cell is not None else "" for cell in row]
-            if any(v.strip() for v in row_vals):
-                rows.append(" | ".join(row_vals))
+    sheets: list[tuple[str, list[list[str]]]] = []
+    if ext == ".csv":
+        sheets.append((Path(file_path).stem, _read_csv(file_path)))
+    else:
+        wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
+        for sheet_name in wb.sheetnames:
+            rows = [[str(c) if c is not None else "" for c in row]
+                    for row in wb[sheet_name].iter_rows(values_only=True)]
+            sheets.append((sheet_name, rows))
 
-        if rows:
-            sheet_text = f"## Sheet: {sheet_name}\n" + "\n".join(rows)
-            all_text.append(sheet_text)
+    all_text, chunks, metadata = [], [], {"sheets": []}
+    for sheet_name, rows in sheets:
+        sheet_chunks = _table_to_chunks(sheet_name, rows)
+        if sheet_chunks:
             metadata["sheets"].append(sheet_name)
+            chunks.extend(sheet_chunks)
+            all_text.append(f"## Sheet: {sheet_name}\n" + "\n".join(" | ".join(r) for r in rows))
 
-    full_text = "\n\n".join(all_text)
-    return {
-        "text": full_text,
-        "chunks": semantic_chunk(full_text, "spreadsheet"),
-        "metadata": metadata,
-    }
+    return {"text": "\n\n".join(all_text), "chunks": chunks, "metadata": metadata}
 
 
 # -----------------------------------------------------------------------------

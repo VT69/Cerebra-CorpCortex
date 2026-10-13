@@ -34,6 +34,7 @@ from backend.ingestion.parsers.document_parsers import (
     save_fingerprint_cache,
     record_fingerprint,
     parse_document,
+    UnsupportedFormatError,
 )
 from backend.ingestion import dedup
 from backend.shared.ontology import DOC_TYPES
@@ -93,7 +94,11 @@ async def ingest_document(
     doc_id = str(uuid.uuid4())
 
     # 2. Parse
-    parsed = parse_document(file_path, doc_type)
+    try:
+        parsed = parse_document(file_path, doc_type)
+    except UnsupportedFormatError as e:
+        console.print(f"[red]  ✗ {e}[/red]")
+        return {"status": "error", "reason": str(e)}
 
     # None means extraction failed (e.g. P&ID vision error) — do NOT ingest
     if parsed is None:
