@@ -183,3 +183,15 @@ async def get_driver() -> AsyncDriver:
         settings.NEO4J_URI,
         auth=(settings.NEO4J_USERNAME, settings.NEO4J_PASSWORD),
     )
+
+
+async def get_read_driver() -> AsyncDriver:
+    """Driver for query-time graph reads, using least-privilege credentials
+    when NEO4J_READ_USERNAME/NEO4J_READ_PASSWORD are configured."""
+    return AsyncGraphDatabase.driver(
+        settings.NEO4J_URI,
+        auth=(
+            settings.NEO4J_READ_USERNAME or settings.NEO4J_USERNAME,
+            settings.NEO4J_READ_PASSWORD or settings.NEO4J_PASSWORD,
+        ),
+    )

@@ -3,10 +3,12 @@ Neo4j graph traversal for multi-hop and aggregation queries.
 Mohit owns this file.
 """
 import json
+import neo4j
 from neo4j import AsyncDriver
 from openai import AsyncOpenAI
 from backend.config import settings
-from backend.graph.writer import get_driver
+from backend.graph.writer import get_read_driver
+from backend.retrieval.cypher_guard import validate_cypher, UnsafeCypherError
 
 _oai = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 
@@ -59,9 +61,16 @@ async def graph_search(
     if not cypher:
         return []
 
+    # Reject anything that is not a bounded, read-only query before it reaches Neo4j.
+    try:
+        cypher = validate_cypher(cypher)
+    except UnsafeCypherError as e:
+        print(f"[GraphSearch] Rejected generated Cypher ({e}): {cypher[:200]!r}")
+        return []
+
     # Execute against Neo4j
     try:
-        driver = await get_driver()
+        driver = await get_read_driver()
         results = await _run_cypher(driver, cypher)
         await driver.close()
         return results
@@ -103,8 +112,11 @@ async def _generate_cypher(query: str, query_type: str, hop_limit: int) -> str:
 async def _run_cypher(driver: AsyncDriver, cypher: str) -> list[dict]:
     """Execute Cypher and return structured results."""
     results = []
-    async with driver.session() as session:
-        cursor = await session.run(cypher)
+    # READ_ACCESS: the server rejects any write even if validation were bypassed.
+    async with driver.session(default_access_mode=neo4j.READ_ACCESS) as session:
+        cursor = await session.run(
+            neo4j.Query(cypher, timeout=settings.NEO4J_QUERY_TIMEOUT_S)
+        )
         records = await cursor.data()
         for record in records:
             # Flatten record into a dict, collect source_doc_ids for citations

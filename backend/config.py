@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     NEO4J_URI: str = "bolt://localhost:7687"
     NEO4J_USERNAME: str = "neo4j"
     NEO4J_PASSWORD: str = "industrialiq123"
+    # Least-privilege credentials for query-time graph reads. When unset, the
+    # retriever falls back to NEO4J_USERNAME/PASSWORD but still opens a
+    # READ_ACCESS session. See README "Neo4j read-only user".
+    NEO4J_READ_USERNAME: Optional[str] = None
+    NEO4J_READ_PASSWORD: Optional[str] = None
+    NEO4J_QUERY_TIMEOUT_S: float = 5.0
 
     # ChromaDB
     CHROMA_PERSIST_DIR: str = "./data/chroma"
@@ -42,6 +48,7 @@ class Settings(BaseSettings):
     # Retrieval tuning
     VECTOR_TOP_K: int = 10
     GRAPH_HOP_LIMIT: int = 3
+    GRAPH_MAX_LIMIT: int = 20
     RETRIEVAL_CONFIDENCE_THRESHOLD: float = 0.70
     RERANKER_VECTOR_WEIGHT: float = 0.6
     RERANKER_GRAPH_WEIGHT: float = 0.4
