@@ -26,14 +26,16 @@ class FakeCollection:
         return {"ids": ids[:limit] if limit else ids, "documents": docs, "metadatas": metas}
 
 
-def install_ingest_fakes(monkeypatch, chunks, collection=None):
+def install_ingest_fakes(monkeypatch, chunks, collection=None, patch_parser=True):
     """Patch pipeline dependencies; returns a dict recording extractor input."""
     seen = {"extract_text": None, "extract_calls": 0}
     collection = collection or FakeCollection()
 
     async def _classify(text):
         # Simulated LLM layer: confirms real attacks, clears industrial phrasing.
-        return {"is_injection_attempt": "system prompt" in text.lower(), "reasoning": "test"}
+        t = text.lower()
+        return {"is_injection_attempt": "system prompt" in t or "ignore all previous instructions" in t,
+                "reasoning": "test"}
 
     async def _embed(text):
         return [0.0] * 8
@@ -51,7 +53,8 @@ def install_ingest_fakes(monkeypatch, chunks, collection=None):
     monkeypatch.setattr(pipeline, "embed_text", _embed)
     monkeypatch.setattr(pipeline, "get_chroma_collection", lambda: collection)
     monkeypatch.setattr(pipeline, "TwoPassExtractor", _Extractor)
-    monkeypatch.setattr(pipeline, "parse_document",
-                        lambda path, dt: {"text": "\n\n".join(chunks), "chunks": list(chunks), "metadata": {}})
+    if patch_parser:
+        monkeypatch.setattr(pipeline, "parse_document",
+                            lambda path, dt: {"text": "\n\n".join(chunks), "chunks": list(chunks), "metadata": {}})
     seen["collection"] = collection
     return seen
