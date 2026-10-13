@@ -1,1 +1,77 @@
-{}
+{
+  "638dc010892b726204cf7c8163aba3f9553660e3f3dbbb3ba7033db705087ad7": {
+    "doc_id": "6555f57b-23e7-4840-9943-3575dd0bf1e3",
+    "file_path": "sample_docs/Calibration-Catalogue-for-Gas-Detector.pdf",
+    "ingested_at": "rescan"
+  },
+  "1528243f3b91e13eb80e4b2bd51651858909c0f4ac42b7bc73d872bae6b0ffcd": {
+    "doc_id": "3ee6cb71-c810-450a-87f3-0dd7fcf95758",
+    "file_path": "sample_docs/Maintenance_Manual_May2015.pdf",
+    "ingested_at": "rescan"
+  },
+  "c7ace94c853c188f10bab7f00b181ec645509f6c5eabb356763e8e83ad4304b1": {
+    "doc_id": "0191dafa-ca4d-4feb-8a6a-3d240f8bfe1a",
+    "file_path": "sample_docs/OSHA Regu;ations Testing.pdf",
+    "ingested_at": "rescan"
+  },
+  "1d4fa8c63fdf96be40a8faf190a88c7a9da581e1b7581340e3a3ef8ba842ef32": {
+    "doc_id": "33b96e5c-02a8-4f84-968f-5391243441da",
+    "file_path": "sample_docs/OSHA Regulations Testing 2.pdf",
+    "ingested_at": "rescan"
+  },
+  "8629c1845b490b21e500c1052b8f75298374a6e3c080a6a0bc8710eb12aa60a2": {
+    "doc_id": "9c86eab8-c411-449f-b809-9f7a9d81e58d",
+    "file_path": "sample_docs/PID.jpg",
+    "ingested_at": "rescan"
+  },
+  "d67f7431f722a31294ca6381724ac77a6c689df2f27e8499d9ff6fedccd79072": {
+    "doc_id": "c084dd83-da05-492e-ac3d-21b7e43f9701",
+    "file_path": "sample_docs/Vibration-monitoring-of-pumps-1.pdf",
+    "ingested_at": "rescan"
+  },
+  "4cd058e8dc077ce14472a11885d853a6c95b3f1b44f05705335116666cdadaa6": {
+    "doc_id": "4efa9dc9-f62b-4dfa-b812-f3a56eb8b115",
+    "file_path": "data/uploads/Vindhya_Steel_BF1_Maintenance_Manual.txt",
+    "ingested_at": "rescan"
+  },
+  "9528a79a31a2909a85b13df404e1ae282327a9c30b3ce79cd990fea130bbb16c": {
+    "doc_id": "cc56a892-77ba-49d3-80fd-3bc22107d7c0",
+    "file_path": "data/uploads/Vindhya_Steel_Compliance_Audit_2024.txt",
+    "ingested_at": "rescan"
+  },
+  "e793669e43200e9a09ccd1141aaa407b11a97026d9867ab895708d0caa3144b8": {
+    "doc_id": "9a9e322f-e221-4711-b9d7-f646726da3a6",
+    "file_path": "data/uploads/Vindhya_Steel_Incident_Report_C202.txt",
+    "ingested_at": "rescan"
+  },
+  "f1d55d26df004a0677b13cd58a1b7cababdcf5737677eba11b65af983c45b07c": {
+    "doc_id": "ac8fffac-dcdf-4ab8-a86e-3064a614d85d",
+    "file_path": "data/uploads/Vindhya_Steel_LOTO_SOP.txt",
+    "ingested_at": "rescan"
+  },
+  "df62992585ece01010ffb7d8818602835ee633065c1d5aaaf0782a37d909682d": {
+    "doc_id": "bdea860b-0b88-4478-9f8b-778b9d1cac50",
+    "file_path": "data/uploads/Vindhya_Steel_Vibration_Log_P101.txt",
+    "ingested_at": "rescan"
+  },
+  "97956184e8f286704b9605718d2c9d0cc372bcd35f9abb3609201d66c0edbb57": {
+    "doc_id": "2dcab9ef-a182-4078-9d6c-a79bc878958a",
+    "file_path": "sample_docs/blastfurnace01.pdf",
+    "ingested_at": "rescan"
+  },
+  "1a405aed78bf52a294ecb556da24c684e8ae2bf955f811cd0fb303a502797d7e": {
+    "doc_id": "b82ae873-8b0a-418e-97e9-a13167f6e862",
+    "file_path": "sample_docs/blastfurnace02.pdf",
+    "ingested_at": "rescan"
+  },
+  "c54da916fae0bc7887608c567ebbf6f22a4afaa0df7cfca97af8556b4fe03d7a": {
+    "doc_id": "0c682e9b-03ca-4e7b-b43d-52e859a6f350",
+    "file_path": "sample_docs/inspection_report_V201_2024.txt",
+    "ingested_at": "rescan"
+  },
+  "5c840fb439d16f94c476cf1087019b1db63687a8645dcd1ff676fbbc5a35d9f2": {
+    "doc_id": "322dfc51-9c1b-4eeb-9841-f5f6db2e6488",
+    "file_path": "sample_docs/work_order_P101_2024.txt",
+    "ingested_at": "rescan"
+  }
+}
